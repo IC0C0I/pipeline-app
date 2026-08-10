@@ -1,0 +1,825 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pipeline</title>
+<style>
+  :root {
+    --bg: #0c111b; --panel: #0f1521; --panel-2: #131a28;
+    --row: #0f1521; --row-alt: #121a28;
+    --border: #1e2836; --border-strong: #2a3648;
+    --text: #d7dee9; --muted: #7c8899; --muted-2: #5c6675;
+    --accent: #3b82f6; --link: #4f9bff; --input-bg: #0b1019; --chip-bg: #121a28;
+    --green: #34d07f; --green-bg: #102a1d; --green-bd: #1c4630;
+    --red: #f8716a;   --red-bg: #2c1517;   --red-bd: #52242a;
+    --amber: #f2b657; --amber-bg: #2c2413; --amber-bd: #574319;
+    --blue: #5aa2ff;  --blue-bg: #12233f;  --blue-bd: #234065;
+    --teal: #35c9c0;  --teal-bg: #0e2a2a;  --teal-bd: #1c4a48;
+    --gray: #9aa6b6;  --gray-bg: #1a2333;  --gray-bd: #2b3648;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 13px; }
+  a { color: var(--link); text-decoration: none; }
+
+  /* ---- auth overlay ---- */
+  #auth { position: fixed; inset: 0; z-index: 50; background: var(--bg); display: flex; align-items: center; justify-content: center; }
+  #auth.hide { display: none; }
+  .authcard { width: 340px; background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 26px 24px; }
+  .authcard h1 { font-size: 19px; margin: 0 0 3px; }
+  .authcard p { color: var(--muted); margin: 0 0 18px; font-size: 12.5px; }
+  .authcard label { display: block; font-size: 11.5px; font-weight: 600; color: var(--muted); margin: 12px 0 5px; }
+  .authcard input { width: 100%; padding: 10px 12px; border-radius: 8px; background: var(--input-bg); border: 1px solid var(--border); color: var(--text); font: inherit; }
+  .authcard input:focus { outline: none; border-color: var(--accent); }
+  .authcard .btn { width: 100%; justify-content: center; margin-top: 18px; padding: 11px; }
+  .authcard .alt { text-align: center; margin-top: 14px; font-size: 12.5px; color: var(--muted); }
+  .authcard .alt a { cursor: pointer; }
+  #authMsg { min-height: 16px; margin-top: 12px; font-size: 12.5px; }
+  #authMsg.err { color: var(--red); } #authMsg.ok { color: var(--green); }
+
+  /* ---- top tab bar ---- */
+  .tabbar { display: flex; align-items: center; gap: 4px; padding: 8px 16px; border-bottom: 1px solid var(--border); background: var(--panel); }
+  .tab { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 7px; cursor: pointer; color: var(--muted); font-weight: 600; font-size: 12.5px; border: 1px solid transparent; white-space: nowrap; }
+  .tab:hover { color: var(--text); background: var(--panel-2); }
+  .tab.active { color: #fff; background: var(--panel-2); border-color: var(--border-strong); }
+  .tab .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .userbox { margin-left: auto; display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12.5px; }
+  .userbox b { color: var(--text); font-weight: 600; }
+
+  .wrap { padding: 16px 16px 40px; }
+  .title { font-size: 20px; font-weight: 700; margin: 6px 2px 2px; }
+  .subtitle { color: var(--muted); margin: 0 2px 14px; font-size: 12.5px; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+  .chip { background: var(--chip-bg); border: 1px solid var(--border); border-radius: 9px; padding: 8px 14px; display: flex; align-items: baseline; gap: 8px; }
+  .chip .k { color: var(--muted); font-size: 11.5px; font-weight: 600; }
+  .chip .v { font-size: 14px; font-weight: 700; }
+  .chip .v.green { color: var(--green); } .chip .v.red { color: var(--red); }
+
+  .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .search { position: relative; flex: 1; min-width: 240px; max-width: 520px; }
+  .search input { width: 100%; padding: 9px 12px 9px 32px; border-radius: 8px; background: var(--input-bg); border: 1px solid var(--border); color: var(--text); font: inherit; }
+  .search svg { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); opacity: .5; }
+  .btn { font: inherit; font-weight: 600; font-size: 12.5px; cursor: pointer; background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 9px 15px; display: inline-flex; align-items: center; gap: 6px; }
+  .btn:hover { filter: brightness(1.08); }
+  .btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--border-strong); }
+  .btn.ghost:hover { color: var(--text); }
+  .btn.danger { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-bd); }
+  #selbar { display: none; align-items: center; gap: 10px; color: var(--muted); }
+  #selbar.show { display: inline-flex; }
+
+  .grid-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--panel); }
+  table { border-collapse: separate; border-spacing: 0; width: 100%; min-width: 1440px; }
+  thead th { position: sticky; top: 0; z-index: 2; background: var(--panel-2); text-align: left; font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); font-weight: 700; padding: 10px 10px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  thead th.sortable { cursor: pointer; user-select: none; }
+  thead th.sortable:hover { color: var(--text); }
+  .caret { color: var(--accent); margin-left: 3px; font-size: 10px; }
+  .funnel { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; margin-left: 4px; border-radius: 4px; cursor: pointer; color: var(--muted-2); vertical-align: middle; }
+  .funnel:hover { color: var(--text); background: var(--panel); }
+  .funnel.active { color: #fff; background: var(--accent); }
+  #filterPop { position: fixed; z-index: 60; width: 234px; background: var(--panel); border: 1px solid var(--border-strong); border-radius: 10px; box-shadow: 0 12px 34px #000a; padding: 9px; display: none; }
+  #filterPop.show { display: block; }
+  #filterPop .fp-search { width: 100%; padding: 7px 9px; margin-bottom: 7px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font: inherit; font-size: 12px; }
+  #filterPop .fp-actions { display: flex; gap: 12px; padding: 0 2px 7px; border-bottom: 1px solid var(--border); margin-bottom: 6px; }
+  #filterPop .fp-actions a { cursor: pointer; color: var(--link); font-size: 11.5px; font-weight: 600; }
+  #filterPop .fp-list { max-height: 230px; overflow-y: auto; display: flex; flex-direction: column; }
+  #filterPop .fp-list label { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 5px; cursor: pointer; font-size: 12.5px; font-weight: 400; color: var(--text); text-transform: none; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #filterPop .fp-list label:hover { background: var(--panel-2); }
+  #filterPop .fp-list label span { overflow: hidden; text-overflow: ellipsis; }
+  #filterPop .fp-empty { color: var(--muted); font-size: 12px; padding: 8px 6px; }
+  .fileacts { display: inline-flex; align-items: center; gap: 10px; white-space: nowrap; }
+  .fileacts a { cursor: pointer; font-size: 11.5px; }
+  .filelink { color: var(--link); } .filelink:hover { text-decoration: underline; }
+  .filedl { color: var(--link); } .filedl:hover { text-decoration: underline; }
+  .filerm { color: var(--muted); } .filerm:hover { color: var(--red); text-decoration: underline; }
+  /* PDF preview modal */
+  #pdfModal { position: fixed; inset: 0; z-index: 70; background: #000b; display: none; align-items: center; justify-content: center; padding: 24px; }
+  #pdfModal.show { display: flex; }
+  #pdfModal .pm-card { background: var(--panel); border: 1px solid var(--border-strong); border-radius: 12px; width: min(920px, 96vw); height: 90vh; display: flex; flex-direction: column; overflow: hidden; }
+  #pdfModal .pm-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  #pdfModal .pm-title { font-weight: 600; font-size: 13px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #pdfModal .pm-body { flex: 1; overflow: auto; background: #3a3f47; padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  #pdfModal .pm-page { max-width: 100%; height: auto; box-shadow: 0 2px 12px #0009; background: #fff; }
+  #pdfModal .pm-fallback { color: #cfd6e0; text-align: center; margin: auto; font-size: 13px; line-height: 1.8; }
+  #pdfModal .pm-x { cursor: pointer; color: var(--muted); padding: 6px 10px; border-radius: 6px; font-size: 12.5px; }
+  #pdfModal .pm-x:hover { color: var(--text); background: var(--panel-2); }
+  .upl { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); border: 1px dashed var(--border-strong); border-radius: 6px; padding: 5px 10px; cursor: pointer; white-space: nowrap; }
+  .upl:hover { color: var(--text); border-color: var(--accent); }
+  .upl.busy, .upl-mini.busy { opacity: .6; pointer-events: none; }
+  .invcell { display: flex; align-items: center; gap: 4px; }
+  .invcell .cell-in { min-width: 78px; }
+  .upl-mini { display: inline-flex; align-items: center; cursor: pointer; color: var(--muted); padding: 3px 6px; border: 1px dashed var(--border-strong); border-radius: 6px; font-size: 12px; }
+  .upl-mini:hover { color: var(--text); border-color: var(--accent); }
+  tr.filters th { position: sticky; top: 33px; z-index: 2; background: var(--panel-2); padding: 0 8px 8px; border-bottom: 1px solid var(--border); }
+  tr.filters input { width: 100%; min-width: 60px; padding: 5px 7px; font: inherit; font-size: 11.5px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); }
+  tr.filters input::placeholder { color: var(--muted-2); }
+  tr.filters .minmax { display: flex; gap: 4px; }
+
+  tbody td { padding: 5px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; white-space: nowrap; }
+  tbody tr:nth-child(odd) { background: var(--row); }
+  tbody tr:nth-child(even) { background: var(--row-alt); }
+  tbody tr:hover { background: #16203180; }
+
+  .cell-in { width: 100%; min-width: 90px; padding: 6px 8px; font: inherit; background: transparent; border: 1px solid transparent; border-radius: 6px; color: var(--text); }
+  .cell-in:hover { border-color: var(--border); }
+  .cell-in:focus { outline: none; background: var(--input-bg); border-color: var(--accent); }
+  .cell-in.saved { border-color: var(--green); }
+  .cell-in.err { border-color: var(--red); }
+  input[type=date].cell-in { min-width: 132px; color-scheme: dark; }
+  .money-wrap { display: inline-flex; align-items: center; }
+  .money-wrap .cur { color: var(--muted); padding-left: 6px; }
+  .money-wrap .cell-in { min-width: 84px; text-align: right; }
+  .num { text-align: right; }
+  .ref { font-family: ui-monospace, Menlo, Consolas, monospace; color: var(--link); font-size: 12px; cursor: pointer; }
+  .ref:hover { text-decoration: underline; }
+  .linkcell { display: flex; align-items: center; gap: 4px; }
+  .linkcell .name { min-width: 120px; } .linkcell .url { min-width: 90px; font-size: 11.5px; color: var(--muted); }
+  .linkcell .go { color: var(--link); padding: 2px 5px; border-radius: 5px; cursor: pointer; opacity: .8; }
+  .linkcell .go:hover { background: var(--panel-2); opacity: 1; } .linkcell .go.off { opacity: .25; pointer-events: none; }
+  select.status { font: inherit; font-weight: 600; font-size: 12px; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--chip-bg); color: var(--text); cursor: pointer; appearance: none; }
+  select.status.st-foruploading { color: var(--amber); background: var(--amber-bg); border-color: var(--amber-bd); }
+  select.status.st-uploaded     { color: var(--green); background: var(--green-bg); border-color: var(--green-bd); }
+  /* legacy values keep a sensible color if any old rows still use them */
+  select.status.st-ordered  { color: var(--blue);  background: var(--blue-bg);  border-color: var(--blue-bd); }
+  select.status.st-invoiced { color: var(--amber); background: var(--amber-bg); border-color: var(--amber-bd); }
+  select.status.st-paid     { color: var(--green); background: var(--green-bg); border-color: var(--green-bd); }
+  select.status.st-pending  { color: var(--gray);  background: var(--gray-bg);  border-color: var(--border-strong); }
+  select.status.st-cancelled{ color: var(--red);   background: var(--red-bg);   border-color: var(--red-bd); }
+  .trash { cursor: pointer; color: var(--muted-2); padding: 4px 6px; border-radius: 6px; }
+  .trash:hover { color: var(--red); background: var(--red-bg); }
+  input[type=checkbox] { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
+  .empty { padding: 30px; text-align: center; color: var(--muted); }
+  .colcheck { width: 34px; } .colref { width: 96px; } .colact { width: 40px; }
+  .tab-sep { width: 1px; height: 20px; background: var(--border-strong); margin: 0 6px; }
+  /* Kanban */
+  #kanban { margin-top: 2px; }
+  .kb-cols { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 10px; align-items: flex-start; }
+  .kb-col { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; width: 290px; min-width: 290px; display: flex; flex-direction: column; max-height: calc(100vh - 230px); }
+  .kb-col.kb-over { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 32%, transparent); }
+  .kb-head { padding: 10px 12px; font-weight: 700; font-size: 12.5px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); }
+  .kb-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .kb-count { margin-left: auto; color: var(--muted); font-weight: 600; background: var(--panel-2); border-radius: 999px; padding: 1px 8px; font-size: 11px; }
+  .kb-list { padding: 10px; display: flex; flex-direction: column; gap: 9px; overflow-y: auto; min-height: 46px; }
+  .kb-card { background: var(--panel-2); border: 1px solid var(--border-strong); border-radius: 8px; padding: 10px 11px; cursor: grab; }
+  .kb-card:hover { border-color: var(--accent); }
+  .kb-card.dragging { opacity: .45; }
+  .kb-dist { font-weight: 600; font-size: 13px; margin-bottom: 6px; }
+  .kb-meta { display: flex; flex-wrap: wrap; gap: 7px; font-size: 12px; color: var(--muted); }
+  .kb-meta span { background: var(--chip-bg); border: 1px solid var(--border); border-radius: 5px; padding: 1px 7px; }
+  .kb-sub { margin-top: 7px; font-size: 11px; color: var(--muted-2); }
+  #toast { position: fixed; bottom: 18px; right: 18px; background: var(--panel-2); border: 1px solid var(--border-strong); color: var(--text); padding: 9px 14px; border-radius: 8px; font-size: 12.5px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  #toast.show { opacity: 1; } #toast.err { border-color: var(--red-bd); color: var(--red); }
+</style>
+</head>
+<body>
+  <!-- login gate -->
+  <div id="auth">
+    <div class="authcard">
+      <h1>Pipeline</h1>
+      <p id="authSub">Sign in to continue.</p>
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="username" placeholder="you@company.com" />
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" placeholder="••••••••" />
+      <button class="btn" id="authBtn">Sign in</button>
+      <div id="authMsg"></div>
+      <div class="alt" id="authAlt">No account yet? <a id="toggleMode">Create one</a></div>
+    </div>
+  </div>
+
+  <div class="tabbar" id="tabbar"></div>
+
+  <div class="wrap">
+    <div class="title">Pipeline</div>
+    <div class="subtitle" id="subtitle">0 items in this stage</div>
+    <div class="chips" id="chips"></div>
+
+    <div class="toolbar">
+      <div class="search">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="search" placeholder="Search distributor, order sheet, invoice, note…" />
+      </div>
+      <button class="btn" id="addBtn">+ Add entry</button>
+      <span id="selbar"><span id="selcount">0 selected</span><button class="btn danger" id="delSel">Delete selected</button></span>
+    </div>
+
+    <div id="gridWrap">
+    <div class="grid-scroll">
+      <table>
+        <thead>
+          <tr id="headrow">
+            <th class="colcheck"><input type="checkbox" id="selAll" /></th>
+            <th class="colref">Ref</th>
+            <th class="sortable" data-sort="distributor">Distributor<span class="caret" data-c="distributor"></span></th>
+            <th class="sortable" data-sort="date_order">Date Ordered<span class="caret" data-c="date_order"></span></th>
+            <th>Order Sheet</th>
+            <th class="sortable num" data-sort="order_amount">Order Amount<span class="caret" data-c="order_amount"></span></th>
+            <th class="sortable" data-sort="status">Status<span class="caret" data-c="status"></span></th>
+            <th class="sortable" data-sort="invoice_no">Invoice No<span class="caret" data-c="invoice_no"></span></th>
+            <th class="sortable num" data-sort="invoice_amount">Invoice Amount<span class="caret" data-c="invoice_amount"></span></th>
+            <th class="sortable" data-sort="date_invoiced">Date Invoiced<span class="caret" data-c="date_invoiced"></span></th>
+            <th>Re-order Sheet</th>
+            <th class="sortable" data-sort="note">Note<span class="caret" data-c="note"></span></th>
+            <th class="colact"></th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    </div>
+    <div id="kanban" style="display:none"></div>
+    <div id="emptyState" class="empty" style="display:none">No entries — click “+ Add entry”.</div>
+  </div>
+
+  <div id="toast"></div>
+  <div id="filterPop"></div>
+  <div id="pdfModal">
+    <div class="pm-card">
+      <div class="pm-head">
+        <span class="pm-title" id="pmTitle"></span>
+        <button class="btn ghost" id="pmDownload">Download</button>
+        <button class="btn ghost" id="pmOpen">Open in tab</button>
+        <span class="pm-x" id="pmClose">✕ Close</span>
+      </div>
+      <div class="pm-body" id="pmBody"></div>
+    </div>
+  </div>
+
+<script>
+  const SUPABASE_URL = "https://xkblzicaiyzbljxbjvar.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_Pwot1cVUd-fms3iKA3mX6A_piw49HiG";
+  const REST = SUPABASE_URL + "/rest/v1/pipeline_entries";
+  const REST_FILES = SUPABASE_URL + "/rest/v1/pipeline_files";
+  const AUTH = SUPABASE_URL + "/auth/v1";
+  const MAX_FILE = 10 * 1024 * 1024; // 10 MB cap for attached PDFs
+
+  const STATUS_OPTIONS = ["For Uploading", "Uploaded"];
+  const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+  const $ = (id) => document.getElementById(id);
+
+  let rowsData = [], activeTab = "All", authMode = "signin";
+  let sortState = { field: null, dir: "asc" };
+  const selected = new Set(), filters = {};
+  let columnFilters = {}; // field -> Set(allowed display values); absent key = column unfiltered
+  let fpField = null;     // column whose filter popover is open
+  let filesByEntry = {};  // entry_id -> { order_sheet: {id, filename}, reorder_sheet: {...} }
+  let viewMode = localStorage.getItem("pl_view") || "grid"; // "grid" | "kanban"
+  let dragId = null;
+  let session = null;
+  try { session = JSON.parse(localStorage.getItem("pl_session") || "null"); } catch (e) {}
+
+  const esc = (s) => (s == null ? "" : String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])));
+  const parseAmount = (v) => { if (v == null) return null; const c = String(v).replace(/[^0-9.\-]/g, ""); if (!c || c === "-" || c === ".") return null; const n = Number(c); return Number.isFinite(n) ? n : null; };
+  const money = (n) => (n == null ? "" : usd.format(n));
+  const slug = (s) => "st-" + String(s || "").toLowerCase().replace(/[^a-z]/g, "");
+  function toast(msg, isErr) { const t = $("toast"); t.textContent = msg; t.className = "show" + (isErr ? " err" : ""); clearTimeout(t._t); t._t = setTimeout(() => (t.className = ""), 2200); }
+
+  // ---------------- auth ----------------
+  function setSession(d) {
+    session = { access_token: d.access_token, refresh_token: d.refresh_token, email: (d.user && d.user.email) || (session && session.email) || "" };
+    localStorage.setItem("pl_session", JSON.stringify(session));
+  }
+  function clearSession() { session = null; localStorage.removeItem("pl_session"); }
+  function authHeaders(json) { const h = { apikey: SUPABASE_KEY, Authorization: "Bearer " + ((session && session.access_token) || SUPABASE_KEY) }; if (json !== false) h["Content-Type"] = "application/json"; return h; }
+
+  async function refresh() {
+    if (!session || !session.refresh_token) return false;
+    try {
+      const r = await fetch(AUTH + "/token?grant_type=refresh_token", { method: "POST", headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ refresh_token: session.refresh_token }) });
+      if (!r.ok) return false;
+      setSession(await r.json()); return true;
+    } catch (e) { return false; }
+  }
+  async function api(url, opts, jsonBody) {
+    opts = opts || {};
+    const go = () => fetch(url, { ...opts, headers: { ...authHeaders(), ...(opts.headers || {}) }, body: jsonBody !== undefined ? JSON.stringify(jsonBody) : opts.body });
+    let res = await go();
+    if (res.status === 401 && session) { if (await refresh()) res = await go(); else { signOut(); } }
+    return res;
+  }
+
+  function showAuth(show) { $("auth").className = show ? "" : "hide"; }
+  function setAuthMode(mode) {
+    authMode = mode;
+    $("authBtn").textContent = mode === "signin" ? "Sign in" : "Create account";
+    $("authSub").textContent = mode === "signin" ? "Sign in to continue." : "Create your account.";
+    $("authAlt").innerHTML = mode === "signin" ? 'No account yet? <a id="toggleMode">Create one</a>' : 'Have an account? <a id="toggleMode">Sign in</a>';
+    $("password").autocomplete = mode === "signin" ? "current-password" : "new-password";
+    $("toggleMode").onclick = () => setAuthMode(mode === "signin" ? "signup" : "signin");
+    $("authMsg").textContent = "";
+  }
+  async function doAuth() {
+    const email = $("email").value.trim(), password = $("password").value;
+    if (!email || !password) { authMsg("Enter email and password.", true); return; }
+    $("authBtn").disabled = true;
+    try {
+      if (authMode === "signup") {
+        const r = await fetch(AUTH + "/signup", { method: "POST", headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.msg || d.error_description || d.error || ("HTTP " + r.status));
+        if (d.access_token) { setSession(d); enterApp(); }
+        else authMsg("Account created. Check your email to confirm, then sign in.", false);
+      } else {
+        const r = await fetch(AUTH + "/token?grant_type=password", { method: "POST", headers: { apikey: SUPABASE_KEY, "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error_description || d.msg || d.error || ("HTTP " + r.status));
+        setSession(d); enterApp();
+      }
+    } catch (e) { authMsg(e.message, true); }
+    finally { $("authBtn").disabled = false; }
+  }
+  function authMsg(m, err) { const el = $("authMsg"); el.textContent = m; el.className = err ? "err" : "ok"; }
+  function signOut() { clearSession(); rowsData = []; renderTabs(); renderBody(); renderStats(); showAuth(true); }
+  function enterApp() { showAuth(false); renderTabs(); load(); }
+
+  // ---------------- data ----------------
+  async function load() {
+    try {
+      const res = await api(REST + "?select=*&order=created_at.desc&limit=1000");
+      if (res.status === 401) { showAuth(true); return; }
+      if (!res.ok) throw new Error("HTTP " + res.status + " " + (await res.text()));
+      rowsData = await res.json();
+      await loadFiles();
+    } catch (e) { console.error(e); toast("Load failed: " + e.message, true); rowsData = []; }
+    renderTabs(); renderView(); renderStats();
+  }
+
+  async function loadFiles() {
+    filesByEntry = {};
+    try {
+      const res = await api(REST_FILES + "?select=id,entry_id,slot,filename");
+      if (!res.ok) return;
+      for (const f of await res.json()) { (filesByEntry[f.entry_id] = filesByEntry[f.entry_id] || {})[f.slot] = { id: f.id, filename: f.filename }; }
+    } catch (e) { console.error(e); }
+  }
+
+  // display value used both in the filter checklist and for matching
+  function cellVal(field, r) {
+    const v = r[field];
+    if (field === "order_amount" || field === "invoice_amount") return (v == null || v === "") ? "(Blanks)" : money(Number(v));
+    return (v == null || String(v) === "") ? "(Blanks)" : String(v);
+  }
+  function distinctValues(field) {
+    const set = new Set();
+    rowsData.forEach((r) => set.add(cellVal(field, r)));
+    const isNum = field === "order_amount" || field === "invoice_amount";
+    return [...set].sort((a, b) => {
+      if (a === "(Blanks)") return 1;
+      if (b === "(Blanks)") return -1;
+      if (isNum) return (parseAmount(a) || 0) - (parseAmount(b) || 0);
+      return a.toLowerCase() < b.toLowerCase() ? -1 : a.toLowerCase() > b.toLowerCase() ? 1 : 0;
+    });
+  }
+
+  function getFiltered() {
+    const q = (filters._search || "").toLowerCase().trim();
+    const fields = Object.keys(columnFilters);
+    return rowsData.filter((r) => {
+      if (activeTab !== "All" && (r.status || "") !== activeTab) return false;
+      if (q) { const hay = [r.distributor, r.order_sheet_label, r.reorder_sheet_label, r.invoice_no, r.note].join(" ").toLowerCase(); if (!hay.includes(q)) return false; }
+      for (const f of fields) { const allowed = columnFilters[f]; if (allowed && !allowed.has(cellVal(f, r))) return false; }
+      return true;
+    });
+  }
+
+  function getSorted(rows) {
+    if (!sortState.field) return rows;
+    const f = sortState.field, dir = sortState.dir === "desc" ? -1 : 1;
+    const numF = ["order_amount", "invoice_amount"], dateF = ["date_order", "date_invoiced"];
+    return [...rows].sort((a, b) => {
+      let x = a[f], y = b[f];
+      if (numF.includes(f)) { x = x == null ? -Infinity : Number(x); y = y == null ? -Infinity : Number(y); return (x - y) * dir; }
+      if (dateF.includes(f)) { x = x || ""; y = y || ""; return (x < y ? -1 : x > y ? 1 : 0) * dir; }
+      x = (x || "").toString().toLowerCase(); y = (y || "").toString().toLowerCase();
+      return (x < y ? -1 : x > y ? 1 : 0) * dir;
+    });
+  }
+
+  // ---------------- render ----------------
+  const STATUS_COLORS = { "For Uploading": "var(--amber)", "Uploaded": "var(--green)" };
+  function renderTabs() {
+    const bar = $("tabbar"); bar.innerHTML = "";
+    // Grid / Kanban view toggle
+    [["grid", "▦ Grid"], ["kanban", "▨ Kanban"]].forEach(([mode, label]) => {
+      const el = document.createElement("div");
+      el.className = "tab" + (viewMode === mode ? " active" : "");
+      el.innerHTML = "<span>" + label + "</span>";
+      el.onclick = () => setView(mode);
+      bar.appendChild(el);
+    });
+    if (viewMode === "grid") {
+      const sep = document.createElement("div"); sep.className = "tab-sep"; bar.appendChild(sep);
+      const present = [...new Set(rowsData.map((r) => r.status).filter(Boolean))];
+      const tabs = ["All", ...STATUS_OPTIONS.filter((s) => present.includes(s))];
+      tabs.forEach((t) => {
+        const el = document.createElement("div");
+        el.className = "tab" + (t === activeTab ? " active" : "");
+        el.innerHTML = (t === "All" ? "<span>▦</span>" : '<span class="dot" style="background:' + (STATUS_COLORS[t] || "#888") + '"></span>') + "<span>" + esc(t) + "</span>";
+        el.onclick = () => { activeTab = t; renderTabs(); renderView(); renderStats(); };
+        bar.appendChild(el);
+      });
+    }
+    if (session && session.email) {
+      const u = document.createElement("div");
+      u.className = "userbox";
+      u.innerHTML = "<span>Signed in as <b>" + esc(session.email) + "</b></span>";
+      const btn = document.createElement("button"); btn.className = "btn ghost"; btn.textContent = "Sign out"; btn.onclick = signOut;
+      u.appendChild(btn); bar.appendChild(u);
+    }
+  }
+
+  function renderStats() {
+    const rows = getFiltered();
+    const sumO = rows.reduce((a, r) => a + (Number(r.order_amount) || 0), 0);
+    const sumI = rows.reduce((a, r) => a + (Number(r.invoice_amount) || 0), 0);
+    const spread = sumO - sumI;
+    $("subtitle").textContent = rows.length + " item" + (rows.length === 1 ? "" : "s") + (activeTab === "All" ? "" : " · " + activeTab);
+    $("chips").innerHTML = chip("Items", rows.length) + chip("Total Order", money(sumO)) + chip("Total Invoice", money(sumI)) + chip("Spread (Order − Invoice)", money(spread), spread >= 0 ? "green" : "red");
+  }
+  const chip = (k, v, cls) => '<div class="chip"><span class="k">' + k + '</span><span class="v ' + (cls || "") + '">' + v + "</span></div>";
+
+  function renderCarets() {
+    document.querySelectorAll(".caret").forEach((c) => { c.textContent = c.dataset.c === sortState.field ? (sortState.dir === "asc" ? "▲" : "▼") : ""; });
+  }
+
+  function renderBody() {
+    const rows = getSorted(getFiltered());
+    const tb = $("rows"); tb.innerHTML = "";
+    $("emptyState").style.display = rows.length ? "none" : "block";
+    for (const r of rows) tb.appendChild(rowEl(r));
+    renderCarets(); syncSelUI();
+  }
+
+  // ---------- view mode (Grid / Kanban) ----------
+  function renderView() { if (viewMode === "kanban") renderKanban(); else renderBody(); }
+  function setView(mode) {
+    viewMode = mode; localStorage.setItem("pl_view", mode);
+    const grid = mode === "grid";
+    $("gridWrap").style.display = grid ? "" : "none";
+    $("kanban").style.display = grid ? "none" : "";
+    if (!grid) { activeTab = "All"; $("emptyState").style.display = "none"; }
+    renderTabs(); renderView(); renderStats();
+  }
+
+  function renderKanban() {
+    const board = $("kanban");
+    const rows = getFiltered();
+    const present = [...new Set(rowsData.map((r) => r.status).filter(Boolean))];
+    const extra = present.filter((s) => !STATUS_OPTIONS.includes(s));
+    const cols = [...STATUS_OPTIONS, ...extra, "__none__"];
+    board.innerHTML = "";
+    const wrap = document.createElement("div"); wrap.className = "kb-cols";
+    cols.forEach((col) => {
+      const isNone = col === "__none__";
+      const status = isNone ? "" : col;
+      const label = isNone ? "No status" : col;
+      const colRows = rows.filter((r) => (r.status || "") === status);
+      const colEl = document.createElement("div");
+      colEl.className = "kb-col";
+      colEl.innerHTML = '<div class="kb-head"><span class="kb-dot" style="background:' + (STATUS_COLORS[col] || "var(--muted-2)") + '"></span>' + esc(label) + '<span class="kb-count">' + colRows.length + "</span></div>";
+      const list = document.createElement("div"); list.className = "kb-list"; list.dataset.status = status;
+      colRows.forEach((r) => list.appendChild(kanbanCard(r)));
+      colEl.appendChild(list);
+      wrap.appendChild(colEl);
+    });
+    board.appendChild(wrap);
+  }
+  function kanbanCard(r) {
+    const c = document.createElement("div");
+    c.className = "kb-card"; c.draggable = true; c.dataset.id = r.id;
+    const inv = r.invoice_no ? "<span>#" + esc(r.invoice_no) + "</span>" : "";
+    const amt = r.order_amount != null ? "<span>" + esc(money(Number(r.order_amount))) + "</span>" : "";
+    const pdf = (filesByEntry[r.id] || {}).invoice ? '<span title="Invoice PDF attached">📄</span>' : "";
+    const sub = r.date_order ? '<div class="kb-sub">Ordered ' + esc(r.date_order) + "</div>" : "";
+    c.innerHTML = '<div class="kb-dist">' + esc(r.distributor || "(no distributor)") + "</div>" +
+      '<div class="kb-meta">' + inv + amt + pdf + "</div>" + sub;
+    return c;
+  }
+  async function moveCard(id, status) {
+    const rec = rowsData.find((r) => r.id === id); if (!rec) return;
+    if ((rec.status || "") === status) return;
+    const prev = rec.status; rec.status = status || null;
+    renderKanban(); renderStats();
+    try {
+      const res = await api(REST + "?id=eq." + id, { method: "PATCH", headers: { Prefer: "return=minimal" } }, { status: status || null });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      toast("Moved to " + (status || "No status"));
+    } catch (e) { console.error(e); rec.status = prev; renderKanban(); renderStats(); toast("Move failed: " + e.message, true); }
+  }
+  function setupKanban() {
+    const board = $("kanban");
+    board.addEventListener("dragstart", (e) => { const card = e.target.closest(".kb-card"); if (card) { dragId = card.dataset.id; e.dataTransfer.effectAllowed = "move"; card.classList.add("dragging"); } });
+    board.addEventListener("dragend", (e) => { const card = e.target.closest(".kb-card"); if (card) card.classList.remove("dragging"); });
+    board.addEventListener("dragover", (e) => { const list = e.target.closest(".kb-list"); if (list) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; list.parentElement.classList.add("kb-over"); } });
+    board.addEventListener("dragleave", (e) => { const list = e.target.closest(".kb-list"); if (list && !list.contains(e.relatedTarget)) list.parentElement.classList.remove("kb-over"); });
+    board.addEventListener("drop", (e) => { const list = e.target.closest(".kb-list"); if (!list || dragId == null) return; e.preventDefault(); list.parentElement.classList.remove("kb-over"); moveCard(dragId, list.dataset.status); dragId = null; });
+  }
+
+  function ci(id, field, type, value, extra) {
+    return '<input class="cell-in" data-id="' + id + '" data-field="' + field + '" data-type="' + type + '" value="' + esc(value == null ? "" : value) + '" ' + (extra || "") + " />";
+  }
+  const moneyCell = (id, field, val) => '<span class="money-wrap"><span class="cur">$</span>' + ci(id, field, "amount", val == null ? "" : Number(val).toFixed(2)) + "</span>";
+  // Compact PDF attach control (used in the Invoice cell): paperclip to attach, 📄 to open, ✕ to remove.
+  function fileCell(r, slot) {
+    const f = (filesByEntry[r.id] || {})[slot];
+    if (f) {
+      return '<span class="fileacts">' +
+             '<a class="filelink" data-fid="' + f.id + '" title="Preview ' + esc(f.filename || "PDF") + '">📄 Preview</a>' +
+             '<a class="filedl" data-dl="' + f.id + '" title="Download ' + esc(f.filename || "PDF") + '">Download</a>' +
+             '<a class="filerm" data-fdel="' + f.id + '" data-eid="' + r.id + '" data-slot="' + slot + '" title="Delete PDF">Delete</a>' +
+             "</span>";
+    }
+    return '<label class="upl-mini" title="Attach invoice PDF"><input type="file" class="fileup" accept="application/pdf,.pdf" data-eid="' + r.id + '" data-slot="' + slot + '" hidden>📎</label>';
+  }
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => { const rd = new FileReader(); rd.onload = () => resolve(String(rd.result).split(",")[1]); rd.onerror = reject; rd.readAsDataURL(file); });
+  }
+  async function handleUpload(input) {
+    const file = input.files && input.files[0]; if (!file) return;
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    if (!isPdf) { toast("Please choose a PDF file", true); input.value = ""; return; }
+    if (file.size > MAX_FILE) { toast("PDF too large (max 10 MB)", true); input.value = ""; return; }
+    const eid = input.dataset.eid, slot = input.dataset.slot, lbl = input.parentElement;
+    lbl.classList.add("busy");
+    try {
+      const data = await fileToBase64(file);
+      const payload = { entry_id: eid, slot, filename: file.name, mime: file.type || "application/pdf", data };
+      const res = await api(REST_FILES + "?on_conflict=entry_id,slot", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" } }, payload);
+      if (!res.ok) throw new Error("HTTP " + res.status + " " + (await res.text()));
+      const [rec] = await res.json();
+      (filesByEntry[eid] = filesByEntry[eid] || {})[slot] = { id: rec.id, filename: rec.filename };
+      renderBody(); toast("PDF attached");
+    } catch (e) { console.error(e); lbl.classList.remove("busy"); toast("Upload failed: " + e.message, true); }
+  }
+  let pmUrl = null, pmName = null, pdfjsLoad = null;
+  function ensurePdfjs() {
+    if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+    if (pdfjsLoad) return pdfjsLoad;
+    pdfjsLoad = new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js";
+      s.onload = () => { try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js"; } catch (e) {} resolve(window.pdfjsLib); };
+      s.onerror = () => reject(new Error("Could not load PDF viewer (offline or CDN blocked)"));
+      document.head.appendChild(s);
+    });
+    return pdfjsLoad;
+  }
+  async function openPreview(fid) {
+    const m = $("pdfModal"), body = $("pmBody");
+    $("pmTitle").textContent = "Loading…";
+    body.innerHTML = '<div class="pm-fallback">Loading…</div>';
+    m.classList.add("show");
+    try {
+      const res = await api(REST_FILES + "?id=eq." + fid + "&select=filename,mime,data");
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const [f] = await res.json(); if (!f || !f.data) throw new Error("file not found");
+      const bytes = Uint8Array.from(atob(f.data), (c) => c.charCodeAt(0));
+      if (pmUrl) URL.revokeObjectURL(pmUrl);
+      pmUrl = URL.createObjectURL(new Blob([bytes], { type: f.mime || "application/pdf" }));
+      pmName = f.filename || "invoice.pdf";
+      $("pmTitle").textContent = pmName;
+      const lib = await ensurePdfjs();
+      const pdf = await lib.getDocument({ data: bytes.slice(0) }).promise;
+      body.innerHTML = "";
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 1.5 });
+        const canvas = document.createElement("canvas");
+        canvas.className = "pm-page"; canvas.width = viewport.width; canvas.height = viewport.height;
+        body.appendChild(canvas);
+        await page.render({ canvasContext: canvas.getContext("2d"), viewport }).promise;
+      }
+    } catch (e) {
+      console.error(e);
+      body.innerHTML = '<div class="pm-fallback">Couldn’t render the preview here.<br>Use <b>Download</b> or <b>Open in tab</b> above.<br><small>' + esc(e.message || String(e)) + "</small></div>";
+    }
+  }
+  function closePreview() { $("pdfModal").classList.remove("show"); $("pmBody").innerHTML = ""; if (pmUrl) { URL.revokeObjectURL(pmUrl); pmUrl = null; } }
+
+  async function openFile(fid) {
+    // Open the tab synchronously (inside the click gesture) so the popup blocker allows it.
+    const win = window.open("", "_blank");
+    try {
+      const res = await api(REST_FILES + "?id=eq." + fid + "&select=filename,mime,data");
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const [f] = await res.json(); if (!f || !f.data) throw new Error("file not found");
+      const bytes = Uint8Array.from(atob(f.data), (c) => c.charCodeAt(0));
+      const blob = new Blob([bytes], { type: f.mime || "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      if (win && !win.closed) {
+        win.location.href = url;                 // view in the new tab
+      } else {
+        const a = document.createElement("a");   // popup blocked -> download instead
+        a.href = url; a.download = f.filename || "invoice.pdf";
+        document.body.appendChild(a); a.click(); a.remove();
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e) { console.error(e); if (win) win.close(); toast("Open failed: " + e.message, true); }
+  }
+  async function downloadFile(fid) {
+    try {
+      const res = await api(REST_FILES + "?id=eq." + fid + "&select=filename,mime,data");
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const [f] = await res.json(); if (!f || !f.data) throw new Error("file not found");
+      const bytes = Uint8Array.from(atob(f.data), (c) => c.charCodeAt(0));
+      const blob = new Blob([bytes], { type: f.mime || "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = url; a.download = f.filename || "invoice.pdf";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e) { console.error(e); toast("Download failed: " + e.message, true); }
+  }
+  async function removeFile(fid, eid, slot) {
+    if (!confirm("Remove this PDF?")) return;
+    try {
+      const res = await api(REST_FILES + "?id=eq." + fid, { method: "DELETE", headers: { Prefer: "return=minimal" } });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      if (filesByEntry[eid]) delete filesByEntry[eid][slot];
+      renderBody(); toast("PDF removed");
+    } catch (e) { console.error(e); toast("Remove failed: " + e.message, true); }
+  }
+  function linkCell(r, base, hideName) {
+    const url = r[base + "_url"] || "";
+    const nameInput = hideName ? "" : ci(r.id, base + "_label", "text", r[base + "_label"], 'class="cell-in name" placeholder="name"');
+    return '<div class="linkcell">' + nameInput + ci(r.id, base + "_url", "text", url, 'class="cell-in url" placeholder="https://… (link)"') + '<span class="go ' + (url ? "" : "off") + '" data-open="' + esc(url) + '" title="Open link">↗</span></div>';
+  }
+  function rowEl(r) {
+    const tr = document.createElement("tr"); tr.dataset.id = r.id;
+    const st = r.status || "";
+    const statusOpts = ['<option value=""></option>'].concat(STATUS_OPTIONS.concat(STATUS_OPTIONS.includes(st) || !st ? [] : [st]).map((o) => '<option value="' + esc(o) + '"' + (o === st ? " selected" : "") + ">" + esc(o) + "</option>")).join("");
+    tr.innerHTML =
+      '<td class="colcheck"><input type="checkbox" class="rowsel" data-id="' + r.id + '"' + (selected.has(r.id) ? " checked" : "") + "></td>" +
+      '<td class="colref"><span class="ref" data-copy="' + r.id + '" title="Click to copy id">' + r.id.slice(0, 8).toUpperCase() + "</span></td>" +
+      "<td>" + ci(r.id, "distributor", "text", r.distributor) + "</td>" +
+      "<td>" + ci(r.id, "date_order", "date", r.date_order, 'type="date"') + "</td>" +
+      "<td>" + linkCell(r, "order_sheet", true) + "</td>" +
+      '<td class="num">' + moneyCell(r.id, "order_amount", r.order_amount) + "</td>" +
+      '<td><select class="status ' + slug(st) + '" data-id="' + r.id + '" data-field="status">' + statusOpts + "</select></td>" +
+      '<td><div class="invcell">' + ci(r.id, "invoice_no", "text", r.invoice_no) + fileCell(r, "invoice") + "</div></td>" +
+      '<td class="num">' + moneyCell(r.id, "invoice_amount", r.invoice_amount) + "</td>" +
+      "<td>" + ci(r.id, "date_invoiced", "date", r.date_invoiced, 'type="date"') + "</td>" +
+      "<td>" + linkCell(r, "reorder_sheet", true) + "</td>" +
+      "<td>" + ci(r.id, "note", "text", r.note) + "</td>" +
+      '<td class="colact"><span class="trash" data-del="' + r.id + '" title="Delete row">🗑</span></td>';
+    return tr;
+  }
+
+  // ---------------- save / add / delete ----------------
+  async function saveCell(id, field, type, raw, inputEl) {
+    let value;
+    if (type === "amount") value = parseAmount(raw);
+    else if (type === "date") value = raw || null;
+    else value = (raw || "").trim() || null;
+    try {
+      const res = await api(REST + "?id=eq." + id, { method: "PATCH", headers: { Prefer: "return=minimal" } }, { [field]: value });
+      if (!res.ok) throw new Error("HTTP " + res.status + " " + (await res.text()));
+      const rec = rowsData.find((x) => x.id === id); if (rec) rec[field] = value;
+      if (inputEl) { inputEl.classList.add("saved"); setTimeout(() => inputEl.classList.remove("saved"), 900); }
+      if (type === "amount" && inputEl) inputEl.value = value == null ? "" : value.toFixed(2);
+      renderStats();
+    } catch (e) { console.error(e); if (inputEl) inputEl.classList.add("err"); toast("Save failed: " + e.message, true); }
+  }
+  async function addRow() {
+    try {
+      const res = await api(REST, { method: "POST", headers: { Prefer: "return=representation" } }, { distributor: "" });
+      if (!res.ok) throw new Error("HTTP " + res.status + " " + (await res.text()));
+      const [rec] = await res.json();
+      rowsData.unshift(rec); activeTab = "All"; filters._search = ""; $("search").value = ""; sortState = { field: null, dir: "asc" }; columnFilters = {};
+      renderTabs(); updateFunnels(); renderView(); renderStats();
+      const first = $("rows").querySelector('input.cell-in[data-field="distributor"]'); if (first) first.focus();
+      toast("Row added");
+    } catch (e) { console.error(e); toast("Add failed: " + e.message, true); }
+  }
+  async function delRows(ids) {
+    if (!ids.length) return;
+    if (!confirm("Delete " + ids.length + " row" + (ids.length === 1 ? "" : "s") + "? This cannot be undone.")) return;
+    try {
+      const list = ids.map((i) => '"' + i + '"').join(",");
+      const res = await api(REST + "?id=in.(" + list + ")", { method: "DELETE", headers: { Prefer: "return=minimal" } });
+      if (!res.ok) throw new Error("HTTP " + res.status + " " + (await res.text()));
+      rowsData = rowsData.filter((r) => !ids.includes(r.id)); ids.forEach((i) => selected.delete(i));
+      renderTabs(); renderView(); renderStats(); toast("Deleted");
+    } catch (e) { console.error(e); toast("Delete failed: " + e.message, true); }
+  }
+  function syncSelUI() {
+    $("selcount").textContent = selected.size + " selected";
+    $("selbar").className = selected.size ? "show" : "";
+    const vis = getFiltered().map((r) => r.id);
+    $("selAll").checked = vis.length > 0 && vis.every((id) => selected.has(id));
+  }
+
+  // ---------------- events ----------------
+  const tb = $("rows");
+  tb.addEventListener("change", (e) => {
+    const t = e.target;
+    if (t.classList.contains("fileup")) { handleUpload(t); return; }
+    if (t.classList.contains("rowsel")) { t.checked ? selected.add(t.dataset.id) : selected.delete(t.dataset.id); syncSelUI(); return; }
+    if (t.dataset.field === "status") { t.className = "status " + slug(t.value); saveCell(t.dataset.id, "status", "text", t.value, null); return; }
+    if (t.classList.contains("cell-in")) saveCell(t.dataset.id, t.dataset.field, t.dataset.type, t.value, t);
+  });
+  tb.addEventListener("click", (e) => {
+    const t = e.target;
+    const fl = t.closest(".filelink");
+    if (fl) { openPreview(fl.dataset.fid); return; }
+    if (t.dataset.dl) { downloadFile(t.dataset.dl); return; }
+    if (t.dataset.fdel) { removeFile(t.dataset.fdel, t.dataset.eid, t.dataset.slot); return; }
+    if (t.dataset.del) delRows([t.dataset.del]);
+    else if (t.dataset.copy) { navigator.clipboard && navigator.clipboard.writeText(t.dataset.copy); toast("Ref copied"); }
+    else if (t.classList.contains("go")) { const u = t.dataset.open; if (u) window.open(u, "_blank", "noopener"); }
+  });
+  tb.addEventListener("input", (e) => { if (e.target.dataset.field && e.target.dataset.field.endsWith("_url")) { const go = e.target.parentElement.querySelector(".go"); if (go) { go.dataset.open = e.target.value; go.classList.toggle("off", !e.target.value); } } });
+
+  $("headrow").addEventListener("click", (e) => {
+    const fn = e.target.closest(".funnel");
+    if (fn) { e.stopPropagation(); openFilter(fn.dataset.col, fn); return; }
+    const th = e.target.closest("th.sortable"); if (!th) return;
+    const f = th.dataset.sort;
+    if (sortState.field === f) sortState.dir = sortState.dir === "asc" ? "desc" : "asc";
+    else sortState = { field: f, dir: "asc" };
+    renderBody();
+  });
+
+  // ---------- Google-Sheets-style column filters ----------
+  function updateFunnels() {
+    document.querySelectorAll(".funnel").forEach((f) => f.classList.toggle("active", !!columnFilters[f.dataset.col]));
+  }
+  function openFilter(field, anchor) {
+    fpField = field;
+    const pop = $("filterPop");
+    const values = distinctValues(field);
+    const active = columnFilters[field];
+    const isChecked = (v) => !active || active.has(v);
+    const rows = values.length
+      ? values.map((v) => '<label><input type="checkbox" class="fp-cb" value="' + esc(v) + '"' + (isChecked(v) ? " checked" : "") + "><span>" + esc(v) + "</span></label>").join("")
+      : '<div class="fp-empty">No values</div>';
+    pop.innerHTML =
+      '<input class="fp-search" placeholder="Search values…" />' +
+      '<div class="fp-actions"><a data-fp="all">Select all</a><a data-fp="clear">Clear</a></div>' +
+      '<div class="fp-list">' + rows + "</div>";
+    pop.classList.add("show");
+    const r = anchor.getBoundingClientRect(), w = 234;
+    let left = r.left; if (left + w > window.innerWidth - 8) left = window.innerWidth - 8 - w;
+    pop.style.left = Math.max(8, left) + "px";
+    pop.style.top = (r.bottom + 5) + "px";
+    pop.querySelector(".fp-search").focus();
+  }
+  function applyFilterFromPop() {
+    const cbs = [...$("filterPop").querySelectorAll(".fp-cb")];
+    const checked = cbs.filter((c) => c.checked).map((c) => c.value);
+    if (checked.length === cbs.length) delete columnFilters[fpField];
+    else columnFilters[fpField] = new Set(checked);
+    updateFunnels(); renderView(); renderStats();
+  }
+  function setupFilters() {
+    document.querySelectorAll("th.sortable").forEach((th) => {
+      const s = document.createElement("span");
+      s.className = "funnel"; s.dataset.col = th.dataset.sort; s.title = "Filter";
+      s.innerHTML = '<svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><path d="M3 4h18l-7 8v7l-4 -2v-5z"/></svg>';
+      th.appendChild(s);
+    });
+    const pop = $("filterPop");
+    pop.addEventListener("input", (e) => {
+      if (e.target.classList.contains("fp-search")) {
+        const q = e.target.value.toLowerCase();
+        pop.querySelectorAll(".fp-list label").forEach((l) => { l.style.display = l.textContent.toLowerCase().includes(q) ? "" : "none"; });
+      } else if (e.target.classList.contains("fp-cb")) applyFilterFromPop();
+    });
+    pop.addEventListener("click", (e) => {
+      const a = e.target.closest("[data-fp]"); if (!a) return;
+      pop.querySelectorAll(".fp-cb").forEach((cb) => { if (cb.parentElement.style.display !== "none") cb.checked = a.dataset.fp === "all"; });
+      applyFilterFromPop();
+    });
+    document.addEventListener("mousedown", (e) => {
+      if (!pop.classList.contains("show")) return;
+      if (pop.contains(e.target) || e.target.closest(".funnel")) return;
+      pop.classList.remove("show");
+    });
+    const gs = document.querySelector(".grid-scroll"); if (gs) gs.addEventListener("scroll", () => pop.classList.remove("show"));
+  }
+
+  $("search").addEventListener("input", (e) => { filters._search = e.target.value; renderView(); renderStats(); });
+  $("addBtn").addEventListener("click", addRow);
+  $("delSel").addEventListener("click", () => delRows([...selected]));
+  $("selAll").addEventListener("change", (e) => { const vis = getFiltered().map((r) => r.id); if (e.target.checked) vis.forEach((id) => selected.add(id)); else vis.forEach((id) => selected.delete(id)); renderBody(); });
+
+  $("authBtn").addEventListener("click", doAuth);
+  $("password").addEventListener("keydown", (e) => { if (e.key === "Enter") doAuth(); });
+  $("toggleMode").onclick = () => setAuthMode(authMode === "signin" ? "signup" : "signin");
+
+  $("pmClose").addEventListener("click", closePreview);
+  $("pdfModal").addEventListener("mousedown", (e) => { if (e.target.id === "pdfModal") closePreview(); });
+  $("pmDownload").addEventListener("click", () => { if (!pmUrl) return; const a = document.createElement("a"); a.href = pmUrl; a.download = pmName; document.body.appendChild(a); a.click(); a.remove(); });
+  $("pmOpen").addEventListener("click", () => { if (pmUrl) window.open(pmUrl, "_blank"); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closePreview(); });
+
+  // ---------------- boot ----------------
+  setAuthMode("signin");
+  setupFilters();
+  setupKanban();
+  $("gridWrap").style.display = viewMode === "grid" ? "" : "none";
+  $("kanban").style.display = viewMode === "grid" ? "none" : "";
+  if (session && session.access_token) enterApp(); else showAuth(true);
+</script>
+</body>
+</html>
