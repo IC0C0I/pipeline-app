@@ -150,7 +150,9 @@
   .trash:hover { color: var(--red); background: var(--red-bg); }
   input[type=checkbox] { width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
   .empty { padding: 30px; text-align: center; color: var(--muted); }
-  .colcheck { width: 34px; } .colref { width: 96px; } .colact { width: 40px; }
+  .colcheck { width: 34px; } .colref { width: 96px; } .colact { width: 68px; white-space: nowrap; }
+  .rowmail { cursor: pointer; color: var(--muted-2); padding: 4px 5px; border-radius: 6px; }
+  .rowmail:hover { color: var(--link); background: var(--panel-2); }
   .tab-sep { width: 1px; height: 20px; background: var(--border-strong); margin: 0 6px; }
   /* Kanban */
   #kanban { margin-top: 2px; }
@@ -201,7 +203,6 @@
         <input id="search" placeholder="Search distributor, order sheet, invoice, note…" />
       </div>
       <button class="btn" id="addBtn">+ Add entry</button>
-      <button class="btn ghost" id="emailBtn" title="Email yourself the list of items marked For Uploading">✉ Email me: For Uploading</button>
       <span id="selbar"><span id="selcount">0 selected</span><button class="btn danger" id="delSel">Delete selected</button></span>
     </div>
 
@@ -465,30 +466,26 @@
     const spread = sumO - sumI;
     $("subtitle").textContent = rows.length + " item" + (rows.length === 1 ? "" : "s") + (activeTab === "All" ? "" : " · " + activeTab);
     $("chips").innerHTML = chip("Items", rows.length) + chip("Total Order", money(sumO)) + chip("Total Invoice", money(sumI)) + chip("Spread (Order − Invoice)", money(spread), spread >= 0 ? "green" : "red");
-    updateEmailBtn();
   }
   const chip = (k, v, cls) => '<div class="chip"><span class="k">' + k + '</span><span class="v ' + (cls || "") + '">' + v + "</span></div>";
 
-  function updateEmailBtn() {
-    const n = rowsData.filter((r) => (r.status || "") === "For Uploading").length;
-    const b = $("emailBtn"); if (b) b.textContent = "✉ Email me: For Uploading" + (n ? " (" + n + ")" : "");
-  }
-  function emailForUploading() {
-    const items = rowsData.filter((r) => (r.status || "") === "For Uploading");
-    if (!items.length) { toast("No items are 'For Uploading' right now"); return; }
-    const to = (session && session.email) || "";
-    const subject = "Pipeline — " + items.length + " item" + (items.length === 1 ? "" : "s") + " For Uploading";
-    const lines = items.map((r, i) => {
-      const parts = [(i + 1) + ". " + (r.distributor || "(no distributor)")];
-      if (r.invoice_no) parts.push("Invoice #" + r.invoice_no);
-      if (r.order_amount != null) parts.push(money(Number(r.order_amount)));
-      if (r.order_sheet_url) parts.push("Order sheet: " + r.order_sheet_url);
-      if (r.date_order) parts.push("Ordered " + r.date_order);
-      return parts.join(" | ");
-    });
-    const body = "These pipeline items are marked 'For Uploading':\n\n" + lines.join("\n") + "\n\nOpen the app: https://ic0c0i.github.io/pipeline-app/";
+  const NOTIFY_EMAIL = "jericho@usawholesalesupplies.com";
+  function emailRow(id) {
+    const r = rowsData.find((x) => x.id === id); if (!r) return;
+    const subject = "Pipeline — " + (r.distributor || "item") + (r.status ? " (" + r.status + ")" : "");
+    const parts = ["Distributor: " + (r.distributor || "—")];
+    if (r.status) parts.push("Status: " + r.status);
+    if (r.date_order) parts.push("Date ordered: " + r.date_order);
+    if (r.order_sheet_url) parts.push("Order sheet: " + r.order_sheet_url);
+    if (r.order_amount != null) parts.push("Order amount: " + money(Number(r.order_amount)));
+    if (r.invoice_no) parts.push("Invoice #: " + r.invoice_no);
+    if (r.invoice_amount != null) parts.push("Invoice amount: " + money(Number(r.invoice_amount)));
+    if (r.date_invoiced) parts.push("Date invoiced: " + r.date_invoiced);
+    if (r.reorder_sheet_url) parts.push("Re-order sheet: " + r.reorder_sheet_url);
+    if (r.note) parts.push("Note: " + r.note);
+    const body = parts.join("\n") + "\n\nOpen the app: https://ic0c0i.github.io/pipeline-app/";
     const a = document.createElement("a");
-    a.href = "mailto:" + to + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
+    a.href = "mailto:" + NOTIFY_EMAIL + "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(body);
     document.body.appendChild(a); a.click(); a.remove();
   }
 
@@ -714,7 +711,7 @@
       "<td>" + ci(r.id, "date_invoiced", "date", r.date_invoiced, 'type="date"') + "</td>" +
       "<td>" + linkCell(r, "reorder_sheet", true) + "</td>" +
       "<td>" + ci(r.id, "note", "text", r.note) + "</td>" +
-      '<td class="colact"><span class="trash" data-del="' + r.id + '" title="Delete row">🗑</span></td>';
+      '<td class="colact"><span class="rowmail" data-mail="' + r.id + '" title="Email this item to ' + NOTIFY_EMAIL + '">✉</span><span class="trash" data-del="' + r.id + '" title="Delete row">🗑</span></td>';
     return tr;
   }
 
@@ -777,6 +774,7 @@
     if (fl) { openPreview(fl.dataset.fid); return; }
     if (t.dataset.dl) { downloadFile(t.dataset.dl); return; }
     if (t.dataset.fdel) { removeFile(t.dataset.fdel, t.dataset.eid, t.dataset.slot); return; }
+    if (t.dataset.mail) { emailRow(t.dataset.mail); return; }
     if (t.dataset.del) delRows([t.dataset.del]);
     else if (t.dataset.copy) { navigator.clipboard && navigator.clipboard.writeText(t.dataset.copy); toast("Ref copied"); }
     else if (t.classList.contains("go")) { const u = t.dataset.open; if (u) window.open(u, "_blank", "noopener"); }
@@ -853,7 +851,6 @@
 
   $("search").addEventListener("input", (e) => { filters._search = e.target.value; renderView(); renderStats(); });
   $("addBtn").addEventListener("click", addRow);
-  $("emailBtn").addEventListener("click", emailForUploading);
   $("delSel").addEventListener("click", () => delRows([...selected]));
   $("selAll").addEventListener("change", (e) => { const vis = getFiltered().map((r) => r.id); if (e.target.checked) vis.forEach((id) => selected.add(id)); else vis.forEach((id) => selected.delete(id)); renderBody(); });
 
