@@ -266,6 +266,7 @@
   let filesByEntry = {};  // entry_id -> { order_sheet: {id, filename}, reorder_sheet: {...} }
   let viewMode = localStorage.getItem("pl_view") || "grid"; // "grid" | "kanban"
   let dragId = null;
+  let pollTimer = null, lastSnapshot = "", filesFlat = [];
   let session = null;
   try { session = JSON.parse(localStorage.getItem("pl_session") || "null"); } catch (e) {}
 
@@ -330,8 +331,8 @@
     finally { $("authBtn").disabled = false; }
   }
   function authMsg(m, err) { const el = $("authMsg"); el.textContent = m; el.className = err ? "err" : "ok"; }
-  function signOut() { clearSession(); rowsData = []; renderTabs(); renderBody(); renderStats(); showAuth(true); }
-  function enterApp() { showAuth(false); renderTabs(); load(); }
+  function signOut() { stopPolling(); clearSession(); rowsData = []; lastSnapshot = ""; renderTabs(); renderView(); renderStats(); showAuth(true); }
+  function enterApp() { showAuth(false); renderTabs(); load(); startPolling(); }
 
   // ---------------- data ----------------
   async function load() {
@@ -343,16 +344,43 @@
       await loadFiles();
     } catch (e) { console.error(e); toast("Load failed: " + e.message, true); rowsData = []; }
     renderTabs(); renderView(); renderStats();
+    lastSnapshot = dataSnapshot();
   }
 
   async function loadFiles() {
-    filesByEntry = {};
+    filesByEntry = {}; filesFlat = [];
     try {
       const res = await api(REST_FILES + "?select=id,entry_id,slot,filename");
       if (!res.ok) return;
-      for (const f of await res.json()) { (filesByEntry[f.entry_id] = filesByEntry[f.entry_id] || {})[f.slot] = { id: f.id, filename: f.filename }; }
+      filesFlat = await res.json();
+      for (const f of filesFlat) { (filesByEntry[f.entry_id] = filesByEntry[f.entry_id] || {})[f.slot] = { id: f.id, filename: f.filename }; }
     } catch (e) { console.error(e); }
   }
+
+  // ---------- live auto-refresh (polls for others' changes) ----------
+  function dataSnapshot() { return JSON.stringify(rowsData) + "|" + JSON.stringify(filesFlat); }
+  function isBusyEditing() {
+    const ae = document.activeElement;
+    const focusEditing = ae && ((ae.classList && (ae.classList.contains("cell-in") || ae.classList.contains("fp-search"))) || ae.tagName === "SELECT" || ae.id === "search" || ae.type === "file");
+    return focusEditing || dragId != null || $("pdfModal").classList.contains("show") || $("filterPop").classList.contains("show");
+  }
+  async function pollTick() {
+    if (document.hidden || !session || !session.access_token || isBusyEditing()) return;
+    try {
+      const res = await api(REST + "?select=*&order=created_at.desc&limit=1000");
+      if (!res.ok) return;
+      const data = await res.json();
+      const fres = await api(REST_FILES + "?select=id,entry_id,slot,filename");
+      const files = fres.ok ? await fres.json() : filesFlat;
+      const snap = JSON.stringify(data) + "|" + JSON.stringify(files);
+      if (snap === lastSnapshot || isBusyEditing()) return; // re-check: user may have started editing during fetch
+      lastSnapshot = snap; rowsData = data; filesFlat = files; filesByEntry = {};
+      for (const f of files) { (filesByEntry[f.entry_id] = filesByEntry[f.entry_id] || {})[f.slot] = { id: f.id, filename: f.filename }; }
+      renderTabs(); renderView(); renderStats();
+    } catch (e) { /* transient network error, try again next tick */ }
+  }
+  function startPolling() { if (!pollTimer) pollTimer = setInterval(pollTick, 5000); }
+  function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
 
   // display value used both in the filter checklist and for matching
   function cellVal(field, r) {
@@ -814,6 +842,8 @@
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closePreview(); });
 
   // ---------------- boot ----------------
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) pollTick(); });
+
   setAuthMode("signin");
   setupFilters();
   setupKanban();
