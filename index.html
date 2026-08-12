@@ -61,6 +61,49 @@
   .userbox { margin-left: auto; display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12.5px; }
   .userbox b { color: var(--text); font-weight: 600; }
 
+  /* ---- portal shell ---- */
+  .topbar { display: flex; align-items: center; gap: 12px; padding: 11px 20px; border-bottom: 1px solid var(--border); background: var(--panel); position: sticky; top: 0; z-index: 20; }
+  .topbar .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; }
+  .topbar .brand .logo { width: 26px; height: 26px; }
+  .topbar .spacer { flex: 1; }
+  #topRight { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12.5px; }
+  #topRight b { color: var(--text); font-weight: 600; }
+  .shell { display: grid; grid-template-columns: 240px 1fr; align-items: start; }
+  .rail { border-right: 1px solid var(--border); padding: 14px 10px; background: var(--panel); min-height: calc(100vh - 49px); position: sticky; top: 49px; }
+  .rail .lab { color: var(--muted-2); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; padding: 4px 10px 8px; }
+  .railitem { display: flex; gap: 11px; align-items: flex-start; width: 100%; text-align: left; background: none; border: 1px solid transparent; border-radius: 12px; padding: 11px; cursor: pointer; color: var(--muted); margin-bottom: 5px; font: inherit; }
+  .railitem:hover { background: var(--panel-2); color: var(--text); }
+  .railitem.active { background: color-mix(in srgb, var(--accent) 13%, transparent); border-color: color-mix(in srgb, var(--accent) 35%, transparent); color: var(--text); }
+  .railitem svg { width: 18px; height: 18px; stroke: var(--accent); stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; flex: none; margin-top: 1px; }
+  .railitem .t { font-weight: 600; font-size: 13.5px; display: block; }
+  .railitem .d { font-size: 11.5px; color: var(--muted-2); margin-top: 2px; line-height: 1.35; display: block; }
+  .content { min-width: 0; }
+  .navview { display: none; }
+  .navview.active { display: block; }
+  @media (max-width: 860px) {
+    .shell { grid-template-columns: 1fr; }
+    .rail { border-right: 0; border-bottom: 1px solid var(--border); min-height: 0; position: static; display: flex; gap: 8px; overflow-x: auto; }
+    .rail .lab { display: none; }
+    .railitem { margin-bottom: 0; white-space: nowrap; }
+    .railitem .d { display: none; }
+  }
+  /* ---- invoice upload view ---- */
+  .upwrap { padding: 22px 24px 50px; max-width: 1000px; }
+  .upwrap h1 { font-size: 22px; margin: 4px 0 4px; }
+  .upwrap .sub { color: var(--muted); margin: 0 0 18px; font-size: 13px; }
+  .uptools { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
+  .chk { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12.5px; cursor: pointer; }
+  .muted-txt { color: var(--muted); font-size: 12.5px; }
+  .upcard { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 15px 16px; margin-bottom: 12px; }
+  .upcard-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+  .upcard-title { font-weight: 700; font-size: 15px; }
+  .upcard-sub { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
+  .updrop { display: block; border: 1.5px dashed var(--border-strong); border-radius: 10px; padding: 16px; text-align: center; color: var(--muted); cursor: pointer; font-size: 12.5px; }
+  .updrop:hover, .updrop.drag { border-color: var(--accent); color: var(--text); background: var(--panel-2); }
+  .upfiles { display: flex; flex-direction: column; gap: 5px; margin-top: 10px; }
+  span.status { display: inline-block; font-weight: 600; font-size: 11.5px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--chip-bg); color: var(--text); }
+  span.status.st-awaitinginvoice { color: var(--amber); background: var(--amber-bg); border-color: var(--amber-bd); }
+  span.status.st-invoicereceived { color: var(--green); background: var(--green-bg); border-color: var(--green-bd); }
   .wrap { padding: 16px 16px 40px; }
   .title { font-size: 20px; font-weight: 700; margin: 6px 2px 2px; display: flex; align-items: center; gap: 9px; }
   .logo { width: 26px; height: 26px; flex: none; }
@@ -212,10 +255,23 @@
     </div>
   </div>
 
+  <div class="topbar">
+    <div class="brand"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#2563eb"/><path d="M16 6 26 11 16 16 6 11Z" fill="#fff"/><path d="M6 13 16 18 16 26 6 21Z" fill="#fff" opacity=".65"/><path d="M26 13 16 18 16 26 26 21Z" fill="#fff" opacity=".82"/></svg><span>USA Wholesale Portal</span></div>
+    <div class="spacer"></div>
+    <div id="topRight"></div>
+  </div>
+  <div class="shell">
+    <nav class="rail" id="rail">
+      <div class="lab">Platform</div>
+      <button class="railitem active" data-nav="pipeline"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg><span><span class="t">Pipeline</span><span class="d">Track orders &amp; invoices</span></span></button>
+      <button class="railitem" data-nav="upload"><svg viewBox="0 0 24 24"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg><span><span class="t">Invoice Upload</span><span class="d">Attach invoice PDFs to orders</span></span></button>
+    </nav>
+    <div class="content">
+    <section id="view-pipeline" class="navview active">
   <div class="tabbar" id="tabbar"></div>
 
   <div class="wrap">
-    <div class="title"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#2563eb"/><path d="M16 6 26 11 16 16 6 11Z" fill="#fff"/><path d="M6 13 16 18 16 26 6 21Z" fill="#fff" opacity=".65"/><path d="M26 13 16 18 16 26 26 21Z" fill="#fff" opacity=".82"/></svg>Pipeline</div>
+    <div class="title">Pipeline</div>
     <div class="subtitle" id="subtitle">0 items in this stage</div>
     <div class="chips" id="chips"></div>
 
@@ -255,6 +311,21 @@
     </div>
     <div id="kanban" style="display:none"></div>
     <div id="emptyState" class="empty" style="display:none">No entries — click “+ Add entry”.</div>
+  </div>
+    </section>
+    <section id="view-upload" class="navview">
+      <div class="upwrap">
+        <h1>Invoice Upload</h1>
+        <p class="sub">Attach invoice PDFs to their orders — drag files onto an order, or click to browse. Multiple invoices per order are supported.</p>
+        <div class="uptools">
+          <div class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="uploadSearch" placeholder="Search orders (distributor, invoice #)…" /></div>
+          <label class="chk"><input type="checkbox" id="uploadAwaiting" /> Only awaiting invoice</label>
+          <span id="uploadCount" class="muted-txt"></span>
+        </div>
+        <div id="uploadList"></div>
+      </div>
+    </section>
+    </div>
   </div>
 
   <div id="toast"></div>
@@ -299,6 +370,7 @@
   let filesByEntry = {};  // entry_id -> { order_sheet: {id, filename}, reorder_sheet: {...} }
   let viewMode = localStorage.getItem("pl_view") || "grid"; // "grid" | "kanban"
   let currentTheme = localStorage.getItem("pl_theme") || "dark";
+  let currentNav = localStorage.getItem("pl_nav") || "pipeline";
   let dragId = null;
   let pollTimer = null, lastSnapshot = "", filesFlat = [];
   let session = null;
@@ -311,7 +383,7 @@
   const slug = (s) => "st-" + String(s || "").toLowerCase().replace(/[^a-z]/g, "");
   function toast(msg, isErr) { const t = $("toast"); t.textContent = msg; t.className = "show" + (isErr ? " err" : ""); clearTimeout(t._t); t._t = setTimeout(() => (t.className = ""), 2200); }
   function applyTheme() { document.documentElement.dataset.theme = currentTheme; }
-  function toggleTheme() { currentTheme = currentTheme === "dark" ? "light" : "dark"; localStorage.setItem("pl_theme", currentTheme); applyTheme(); renderTabs(); }
+  function toggleTheme() { currentTheme = currentTheme === "dark" ? "light" : "dark"; localStorage.setItem("pl_theme", currentTheme); applyTheme(); renderTopbar(); }
 
   // ---------------- auth ----------------
   function setSession(d) {
@@ -368,8 +440,8 @@
     finally { $("authBtn").disabled = false; }
   }
   function authMsg(m, err) { const el = $("authMsg"); el.textContent = m; el.className = err ? "err" : "ok"; }
-  function signOut() { stopPolling(); clearSession(); rowsData = []; lastSnapshot = ""; renderTabs(); renderView(); renderStats(); showAuth(true); }
-  function enterApp() { showAuth(false); renderTabs(); load(); startPolling(); }
+  function signOut() { stopPolling(); clearSession(); rowsData = []; lastSnapshot = ""; renderTopbar(); renderTabs(); renderView(); renderStats(); showAuth(true); }
+  function enterApp() { showAuth(false); renderTopbar(); setNav(currentNav); load(); startPolling(); }
 
   // ---------------- data ----------------
   async function load() {
@@ -380,7 +452,7 @@
       rowsData = await res.json();
       await loadFiles();
     } catch (e) { console.error(e); toast("Load failed: " + e.message, true); rowsData = []; }
-    renderTabs(); renderView(); renderStats();
+    renderTabs(); renderActive(); renderStats();
     lastSnapshot = dataSnapshot();
   }
 
@@ -417,7 +489,7 @@
       const snap = JSON.stringify(data) + "|" + JSON.stringify(files);
       if (snap === lastSnapshot || isBusyEditing()) return; // re-check: user may have started editing during fetch
       lastSnapshot = snap; rowsData = data; filesFlat = files; filesByEntry = indexFiles(files);
-      renderTabs(); renderView(); renderStats();
+      renderTabs(); renderActive(); renderStats();
     } catch (e) { /* transient network error, try again next tick */ }
   }
   function startPolling() { if (!pollTimer) pollTimer = setInterval(pollTick, 5000); }
@@ -489,18 +561,66 @@
         bar.appendChild(el);
       });
     }
-    const right = document.createElement("div"); right.className = "userbox";
+  }
+
+  function renderTopbar() {
+    const el = $("topRight"); el.innerHTML = "";
     const themeBtn = document.createElement("button");
     themeBtn.className = "btn ghost"; themeBtn.title = "Toggle light / dark";
     themeBtn.textContent = currentTheme === "light" ? "🌙" : "☀";
-    themeBtn.onclick = toggleTheme; right.appendChild(themeBtn);
+    themeBtn.onclick = toggleTheme; el.appendChild(themeBtn);
     if (session && session.email) {
       const info = document.createElement("span"); info.innerHTML = "Signed in as <b>" + esc(session.email) + "</b>";
-      right.appendChild(info);
+      el.appendChild(info);
       const btn = document.createElement("button"); btn.className = "btn ghost"; btn.textContent = "Sign out"; btn.onclick = signOut;
-      right.appendChild(btn);
+      el.appendChild(btn);
     }
-    bar.appendChild(right);
+  }
+
+  // ---------- nav (Pipeline / Invoice Upload) ----------
+  function setNav(nav) {
+    currentNav = nav; localStorage.setItem("pl_nav", nav);
+    document.querySelectorAll(".railitem").forEach((el) => el.classList.toggle("active", el.dataset.nav === nav));
+    $("view-pipeline").classList.toggle("active", nav === "pipeline");
+    $("view-upload").classList.toggle("active", nav === "upload");
+    if (nav === "upload") renderUpload(); else { renderTabs(); renderView(); renderStats(); }
+  }
+  function renderActive() { if (currentNav === "upload") renderUpload(); else renderView(); }
+
+  // ---------- Invoice Upload view ----------
+  function renderUpload() {
+    const host = $("uploadList"); if (!host) return;
+    const q = ($("uploadSearch").value || "").toLowerCase().trim();
+    const onlyAwaiting = $("uploadAwaiting").checked;
+    let orders = rowsData.slice();
+    if (onlyAwaiting) orders = orders.filter((r) => (r.invoice_status || "") !== "Invoice Received");
+    if (q) orders = orders.filter((r) => [r.distributor, r.invoice_no, r.note].join(" ").toLowerCase().includes(q));
+    $("uploadCount").textContent = orders.length + " order" + (orders.length === 1 ? "" : "s");
+    host.innerHTML = "";
+    if (!orders.length) { host.innerHTML = '<div class="empty">No orders match.</div>'; return; }
+    for (const r of orders) host.appendChild(uploadCard(r));
+  }
+  function uploadCard(r) {
+    const div = document.createElement("div"); div.className = "upcard";
+    const files = (filesByEntry[r.id] || {}).invoice || [];
+    const ist = r.invoice_status || "";
+    const pill = ist ? '<span class="status ' + slug(ist) + '" style="pointer-events:none">' + esc(ist) + "</span>" : "";
+    let filesHtml = '<div class="upfiles">';
+    for (const f of files) {
+      filesHtml += '<span class="invfile">' +
+        '<a class="filelink" data-fid="' + f.id + '" title="Preview">📄 ' + esc(f.filename || "PDF") + "</a>" +
+        '<a class="filedl" data-dl="' + f.id + '" title="Download">⬇</a>' +
+        '<a class="filerm" data-fdel="' + f.id + '" data-eid="' + r.id + '" data-slot="invoice" title="Delete">✕</a>' +
+        "</span>";
+    }
+    filesHtml += "</div>";
+    div.innerHTML =
+      '<div class="upcard-head"><div><div class="upcard-title">' + esc(r.distributor || "(no distributor)") + "</div>" +
+      '<div class="upcard-sub">' + (r.invoice_no ? "Invoice #" + esc(r.invoice_no) + " · " : "") + (r.date_order ? "Ordered " + esc(r.date_order) : "no order date") + "</div></div>" +
+      "<div>" + pill + "</div></div>" +
+      '<label class="updrop" data-eid="' + r.id + '" data-slot="invoice"><input type="file" class="fileup" accept="application/pdf,.pdf" data-eid="' + r.id + '" data-slot="invoice" multiple hidden>⬆ Drag invoice PDF(s) here, or click to browse</label>' +
+      filesHtml;
+    return div;
   }
 
   function renderStats() {
@@ -553,7 +673,7 @@
     $("gridWrap").style.display = grid ? "" : "none";
     $("kanban").style.display = grid ? "none" : "";
     if (!grid) { activeTab = "All"; $("emptyState").style.display = "none"; }
-    renderTabs(); renderView(); renderStats();
+    renderTabs(); renderActive(); renderStats();
   }
 
   function renderKanban() {
@@ -632,13 +752,10 @@
   function fileToBase64(file) {
     return new Promise((resolve, reject) => { const rd = new FileReader(); rd.onload = () => resolve(String(rd.result).split(",")[1]); rd.onerror = reject; rd.readAsDataURL(file); });
   }
-  async function handleUpload(input) {
-    const file = input.files && input.files[0]; if (!file) return;
+  async function uploadInvoicePdf(file, eid, slot) {
     const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-    if (!isPdf) { toast("Please choose a PDF file", true); input.value = ""; return; }
-    if (file.size > MAX_FILE) { toast("PDF too large (max 10 MB)", true); input.value = ""; return; }
-    const eid = input.dataset.eid, slot = input.dataset.slot, lbl = input.parentElement;
-    lbl.classList.add("busy");
+    if (!isPdf) { toast('"' + file.name + '" is not a PDF', true); return false; }
+    if (file.size > MAX_FILE) { toast('"' + file.name + '" is too large (max 10 MB)', true); return false; }
     try {
       const data = await fileToBase64(file);
       const payload = { entry_id: eid, slot, filename: file.name, mime: file.type || "application/pdf", data };
@@ -648,8 +765,20 @@
       const m = (filesByEntry[eid] = filesByEntry[eid] || {}); (m[slot] = m[slot] || []).push({ id: rec.id, filename: rec.filename });
       filesFlat.push({ id: rec.id, entry_id: eid, slot, filename: rec.filename });
       lastSnapshot = dataSnapshot();
-      input.value = ""; renderView(); toast("PDF attached");
-    } catch (e) { console.error(e); lbl.classList.remove("busy"); toast("Upload failed: " + e.message, true); }
+      return true;
+    } catch (e) { console.error(e); toast("Upload failed: " + e.message, true); return false; }
+  }
+  async function handleFiles(fileList, eid, slot) {
+    const files = [...(fileList || [])]; if (!files.length) return;
+    let n = 0; for (const f of files) { if (await uploadInvoicePdf(f, eid, slot)) n++; }
+    renderActive();
+    if (n) toast(n + " PDF" + (n > 1 ? "s" : "") + " attached");
+  }
+  async function handleUpload(input) {
+    const eid = input.dataset.eid, slot = input.dataset.slot;
+    const lbl = input.closest("label"); if (lbl) lbl.classList.add("busy");
+    await handleFiles(input.files, eid, slot);
+    input.value = "";
   }
   let pmUrl = null, pmName = null, pdfjsLoad = null;
   function ensurePdfjs() {
@@ -746,7 +875,7 @@
       const m = filesByEntry[eid]; if (m && m[slot]) m[slot] = m[slot].filter((f) => f.id !== fid);
       filesFlat = filesFlat.filter((f) => f.id !== fid);
       lastSnapshot = dataSnapshot();
-      renderView(); toast("PDF removed");
+      renderActive(); toast("PDF removed");
     } catch (e) { console.error(e); toast("Remove failed: " + e.message, true); }
   }
   function linkCell(r, base, hideName) {
@@ -812,7 +941,7 @@
       const res = await api(REST + "?id=in.(" + list + ")", { method: "DELETE", headers: { Prefer: "return=minimal" } });
       if (!res.ok) throw new Error("HTTP " + res.status + " " + (await res.text()));
       rowsData = rowsData.filter((r) => !ids.includes(r.id)); ids.forEach((i) => selected.delete(i));
-      renderTabs(); renderView(); renderStats(); toast("Deleted");
+      renderTabs(); renderActive(); renderStats(); toast("Deleted");
     } catch (e) { console.error(e); toast("Delete failed: " + e.message, true); }
   }
   function syncSelUI() {
@@ -921,6 +1050,22 @@
   $("password").addEventListener("keydown", (e) => { if (e.key === "Enter") doAuth(); });
   $("toggleMode").onclick = () => setAuthMode(authMode === "signin" ? "signup" : "signin");
 
+  // nav rail
+  $("rail").addEventListener("click", (e) => { const item = e.target.closest(".railitem"); if (item) setNav(item.dataset.nav); });
+  // invoice upload view
+  $("uploadSearch").addEventListener("input", renderUpload);
+  $("uploadAwaiting").addEventListener("change", renderUpload);
+  const ul = $("uploadList");
+  ul.addEventListener("change", (e) => { if (e.target.classList.contains("fileup")) handleUpload(e.target); });
+  ul.addEventListener("click", (e) => {
+    const fl = e.target.closest(".filelink"); if (fl) { openPreview(fl.dataset.fid); return; }
+    if (e.target.dataset.dl) { downloadFile(e.target.dataset.dl); return; }
+    if (e.target.dataset.fdel) { removeFile(e.target.dataset.fdel, e.target.dataset.eid, e.target.dataset.slot); return; }
+  });
+  ul.addEventListener("dragover", (e) => { const d = e.target.closest(".updrop"); if (d) { e.preventDefault(); d.classList.add("drag"); } });
+  ul.addEventListener("dragleave", (e) => { const d = e.target.closest(".updrop"); if (d && !d.contains(e.relatedTarget)) d.classList.remove("drag"); });
+  ul.addEventListener("drop", (e) => { const d = e.target.closest(".updrop"); if (!d) return; e.preventDefault(); d.classList.remove("drag"); handleFiles(e.dataTransfer.files, d.dataset.eid, d.dataset.slot); });
+
   $("pmClose").addEventListener("click", closePreview);
   $("pdfModal").addEventListener("mousedown", (e) => { if (e.target.id === "pdfModal") closePreview(); });
   $("pmDownload").addEventListener("click", () => { if (!pmUrl) return; const a = document.createElement("a"); a.href = pmUrl; a.download = pmName; document.body.appendChild(a); a.click(); a.remove(); });
@@ -929,8 +1074,12 @@
 
   // ---------------- boot ----------------
   document.addEventListener("visibilitychange", () => { if (!document.hidden) pollTick(); });
+  // don't let the browser open a PDF when dropped outside an upload zone
+  document.addEventListener("dragover", (e) => { if (e.dataTransfer && [...e.dataTransfer.types].includes("Files")) e.preventDefault(); });
+  document.addEventListener("drop", (e) => { if (e.dataTransfer && [...e.dataTransfer.types].includes("Files") && !e.target.closest(".updrop")) e.preventDefault(); });
 
   applyTheme();
+  renderTopbar();
   setAuthMode("signin");
   setupFilters();
   setupKanban();
