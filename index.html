@@ -122,8 +122,12 @@
   .upl { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); border: 1px dashed var(--border-strong); border-radius: 6px; padding: 5px 10px; cursor: pointer; white-space: nowrap; }
   .upl:hover { color: var(--text); border-color: var(--accent); }
   .upl.busy, .upl-mini.busy { opacity: .6; pointer-events: none; }
-  .invcell { display: flex; align-items: center; gap: 4px; }
+  .invcell { display: flex; flex-direction: column; gap: 5px; align-items: stretch; }
   .invcell .cell-in { min-width: 78px; }
+  .invfiles { display: flex; flex-direction: column; gap: 3px; }
+  .invfile { display: inline-flex; align-items: center; gap: 8px; font-size: 11.5px; }
+  .invfile a { cursor: pointer; }
+  .invfile .filelink { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .upl-mini { display: inline-flex; align-items: center; cursor: pointer; color: var(--muted); padding: 3px 6px; border: 1px dashed var(--border-strong); border-radius: 6px; font-size: 12px; }
   .upl-mini:hover { color: var(--text); border-color: var(--accent); }
   tr.filters th { position: sticky; top: 33px; z-index: 2; background: var(--panel-2); padding: 0 8px 8px; border-bottom: 1px solid var(--border); }
@@ -379,13 +383,18 @@
     lastSnapshot = dataSnapshot();
   }
 
+  function indexFiles(list) {
+    const map = {};
+    for (const f of list) { const m = (map[f.entry_id] = map[f.entry_id] || {}); (m[f.slot] = m[f.slot] || []).push({ id: f.id, filename: f.filename }); }
+    return map;
+  }
   async function loadFiles() {
     filesByEntry = {}; filesFlat = [];
     try {
-      const res = await api(REST_FILES + "?select=id,entry_id,slot,filename");
+      const res = await api(REST_FILES + "?select=id,entry_id,slot,filename&order=created_at.asc");
       if (!res.ok) return;
       filesFlat = await res.json();
-      for (const f of filesFlat) { (filesByEntry[f.entry_id] = filesByEntry[f.entry_id] || {})[f.slot] = { id: f.id, filename: f.filename }; }
+      filesByEntry = indexFiles(filesFlat);
     } catch (e) { console.error(e); }
   }
 
@@ -402,12 +411,11 @@
       const res = await api(REST + "?select=*&order=created_at.desc&limit=1000");
       if (!res.ok) return;
       const data = await res.json();
-      const fres = await api(REST_FILES + "?select=id,entry_id,slot,filename");
+      const fres = await api(REST_FILES + "?select=id,entry_id,slot,filename&order=created_at.asc");
       const files = fres.ok ? await fres.json() : filesFlat;
       const snap = JSON.stringify(data) + "|" + JSON.stringify(files);
       if (snap === lastSnapshot || isBusyEditing()) return; // re-check: user may have started editing during fetch
-      lastSnapshot = snap; rowsData = data; filesFlat = files; filesByEntry = {};
-      for (const f of files) { (filesByEntry[f.entry_id] = filesByEntry[f.entry_id] || {})[f.slot] = { id: f.id, filename: f.filename }; }
+      lastSnapshot = snap; rowsData = data; filesFlat = files; filesByEntry = indexFiles(files);
       renderTabs(); renderView(); renderStats();
     } catch (e) { /* transient network error, try again next tick */ }
   }
@@ -575,7 +583,8 @@
     c.className = "kb-card"; c.draggable = true; c.dataset.id = r.id;
     const inv = r.invoice_no ? "<span>#" + esc(r.invoice_no) + "</span>" : "";
     const amt = r.order_amount != null ? "<span>" + esc(money(Number(r.order_amount))) + "</span>" : "";
-    const pdf = (filesByEntry[r.id] || {}).invoice ? '<span title="Invoice PDF attached">📄</span>' : "";
+    const invn = ((filesByEntry[r.id] || {}).invoice || []).length;
+    const pdf = invn ? '<span title="' + invn + ' invoice PDF(s)">📄' + (invn > 1 ? " ×" + invn : "") + "</span>" : "";
     const sub = r.date_order ? '<div class="kb-sub">Ordered ' + esc(r.date_order) + "</div>" : "";
     c.innerHTML = '<div class="kb-dist">' + esc(r.distributor || "(no distributor)") + "</div>" +
       '<div class="kb-meta">' + inv + amt + pdf + "</div>" + sub;
@@ -607,15 +616,17 @@
   const moneyCell = (id, field, val) => '<span class="money-wrap"><span class="cur">$</span>' + ci(id, field, "amount", val == null ? "" : fmtAmt(val)) + "</span>";
   // Compact PDF attach control (used in the Invoice cell): paperclip to attach, 📄 to open, ✕ to remove.
   function fileCell(r, slot) {
-    const f = (filesByEntry[r.id] || {})[slot];
-    if (f) {
-      return '<span class="fileacts">' +
-             '<a class="filelink" data-fid="' + f.id + '" title="Preview ' + esc(f.filename || "PDF") + '">📄 Preview</a>' +
-             '<a class="filedl" data-dl="' + f.id + '" title="Download ' + esc(f.filename || "PDF") + '">Download</a>' +
-             '<a class="filerm" data-fdel="' + f.id + '" data-eid="' + r.id + '" data-slot="' + slot + '" title="Delete PDF">Delete</a>' +
-             "</span>";
+    const list = (filesByEntry[r.id] || {})[slot] || [];
+    let html = '<div class="invfiles">';
+    for (const f of list) {
+      html += '<span class="invfile">' +
+        '<a class="filelink" data-fid="' + f.id + '" title="Preview ' + esc(f.filename || "PDF") + '">📄 ' + esc(f.filename || "PDF") + "</a>" +
+        '<a class="filedl" data-dl="' + f.id + '" title="Download">⬇</a>' +
+        '<a class="filerm" data-fdel="' + f.id + '" data-eid="' + r.id + '" data-slot="' + slot + '" title="Delete">✕</a>' +
+        "</span>";
     }
-    return '<label class="upl-mini" title="Attach invoice PDF"><input type="file" class="fileup" accept="application/pdf,.pdf" data-eid="' + r.id + '" data-slot="' + slot + '" hidden>📎</label>';
+    html += '<label class="upl-mini" title="Attach an invoice PDF"><input type="file" class="fileup" accept="application/pdf,.pdf" data-eid="' + r.id + '" data-slot="' + slot + '" hidden>📎 Add PDF</label>';
+    return html + "</div>";
   }
   function fileToBase64(file) {
     return new Promise((resolve, reject) => { const rd = new FileReader(); rd.onload = () => resolve(String(rd.result).split(",")[1]); rd.onerror = reject; rd.readAsDataURL(file); });
@@ -630,11 +641,13 @@
     try {
       const data = await fileToBase64(file);
       const payload = { entry_id: eid, slot, filename: file.name, mime: file.type || "application/pdf", data };
-      const res = await api(REST_FILES + "?on_conflict=entry_id,slot", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" } }, payload);
+      const res = await api(REST_FILES, { method: "POST", headers: { Prefer: "return=representation" } }, payload);
       if (!res.ok) throw new Error("HTTP " + res.status + " " + (await res.text()));
       const [rec] = await res.json();
-      (filesByEntry[eid] = filesByEntry[eid] || {})[slot] = { id: rec.id, filename: rec.filename };
-      renderBody(); toast("PDF attached");
+      const m = (filesByEntry[eid] = filesByEntry[eid] || {}); (m[slot] = m[slot] || []).push({ id: rec.id, filename: rec.filename });
+      filesFlat.push({ id: rec.id, entry_id: eid, slot, filename: rec.filename });
+      lastSnapshot = dataSnapshot();
+      input.value = ""; renderView(); toast("PDF attached");
     } catch (e) { console.error(e); lbl.classList.remove("busy"); toast("Upload failed: " + e.message, true); }
   }
   let pmUrl = null, pmName = null, pdfjsLoad = null;
@@ -720,8 +733,10 @@
     try {
       const res = await api(REST_FILES + "?id=eq." + fid, { method: "DELETE", headers: { Prefer: "return=minimal" } });
       if (!res.ok) throw new Error("HTTP " + res.status);
-      if (filesByEntry[eid]) delete filesByEntry[eid][slot];
-      renderBody(); toast("PDF removed");
+      const m = filesByEntry[eid]; if (m && m[slot]) m[slot] = m[slot].filter((f) => f.id !== fid);
+      filesFlat = filesFlat.filter((f) => f.id !== fid);
+      lastSnapshot = dataSnapshot();
+      renderView(); toast("PDF removed");
     } catch (e) { console.error(e); toast("Remove failed: " + e.message, true); }
   }
   function linkCell(r, base, hideName) {
