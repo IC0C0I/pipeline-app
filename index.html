@@ -233,7 +233,7 @@
             <th class="sortable" data-sort="date_order">Date Ordered<span class="caret" data-c="date_order"></span></th>
             <th>Order Sheet</th>
             <th class="sortable num" data-sort="order_amount">Order Amount<span class="caret" data-c="order_amount"></span></th>
-            <th class="sortable" data-sort="status">Status<span class="caret" data-c="status"></span></th>
+            <th class="sortable" data-sort="status">OTDB Status<span class="caret" data-c="status"></span></th>
             <th class="sortable" data-sort="invoice_status">Invoice Status<span class="caret" data-c="invoice_status"></span></th>
             <th class="sortable" data-sort="invoice_no">Invoice No<span class="caret" data-c="invoice_no"></span></th>
             <th class="sortable num" data-sort="invoice_amount">Invoice Amount<span class="caret" data-c="invoice_amount"></span></th>
@@ -501,7 +501,7 @@
     const r = rowsData.find((x) => x.id === id); if (!r) return;
     const subject = "Pipeline — " + (r.distributor || "item") + (r.status ? " (" + r.status + ")" : "");
     const parts = ["Distributor: " + (r.distributor || "—")];
-    if (r.status) parts.push("Status: " + r.status);
+    if (r.status) parts.push("OTDB Status: " + r.status);
     if (r.date_order) parts.push("Date ordered: " + r.date_order);
     if (r.order_sheet_url) parts.push("Order sheet: " + r.order_sheet_url);
     if (r.order_amount != null) parts.push("Order amount: " + money(Number(r.order_amount)));
