@@ -265,6 +265,7 @@
       <div class="lab">Platform</div>
       <button class="railitem active" data-nav="pipeline"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg><span><span class="t">Pipeline</span><span class="d">Track orders &amp; invoices</span></span></button>
       <button class="railitem" data-nav="upload"><svg viewBox="0 0 24 24"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg><span><span class="t">Invoice Upload</span><span class="d">Attach invoice PDFs to orders</span></span></button>
+      <button class="railitem" data-nav="convert"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="m9 15 2 2 4-4"/></svg><span><span class="t">Order Converter</span><span class="d">Order file → inventory template</span></span></button>
     </nav>
     <div class="content">
     <section id="view-pipeline" class="navview active">
@@ -323,6 +324,31 @@
           <span id="uploadCount" class="muted-txt"></span>
         </div>
         <div id="uploadList"></div>
+      </div>
+    </section>
+
+    <section id="view-convert" class="navview">
+      <div class="upwrap">
+        <h1>Order Converter</h1>
+        <p class="sub">Reshape a raw order export into the 20-column inventory-import template — pads UPCs to 12 digits and maps <b>Client → client_name</b>. Runs entirely in your browser; nothing is uploaded.</p>
+        <div class="upcard">
+          <div class="upcard-head">
+            <div>
+              <div class="upcard-title">Prepare Inventory File</div>
+              <div class="upcard-sub">Order export (CSV) → 20-column inventory-import template</div>
+            </div>
+          </div>
+          <label class="updrop" id="cvDrop">
+            <input type="file" id="cvFile" accept=".csv,text/csv" style="display:none" />
+            <b>Click or drop</b> the order export (CSV)
+            <div id="cvName" style="margin-top:8px;color:var(--green);font-weight:600"></div>
+          </label>
+          <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <button class="btn" id="cvBtn" disabled>Convert</button>
+            <span class="muted-txt" id="cvHint">Add the order file to enable.</span>
+          </div>
+        </div>
+        <div id="cvOut"></div>
       </div>
     </section>
     </div>
@@ -583,9 +609,10 @@
     document.querySelectorAll(".railitem").forEach((el) => el.classList.toggle("active", el.dataset.nav === nav));
     $("view-pipeline").classList.toggle("active", nav === "pipeline");
     $("view-upload").classList.toggle("active", nav === "upload");
-    if (nav === "upload") renderUpload(); else { renderTabs(); renderView(); renderStats(); }
+    $("view-convert").classList.toggle("active", nav === "convert");
+    if (nav === "upload") renderUpload(); else if (nav === "pipeline") { renderTabs(); renderView(); renderStats(); }
   }
-  function renderActive() { if (currentNav === "upload") renderUpload(); else renderView(); }
+  function renderActive() { if (currentNav === "upload") renderUpload(); else if (currentNav === "pipeline") renderView(); }
 
   // ---------- Invoice Upload view ----------
   function renderUpload() {
@@ -1071,6 +1098,116 @@
   $("pmDownload").addEventListener("click", () => { if (!pmUrl) return; const a = document.createElement("a"); a.href = pmUrl; a.download = pmName; document.body.appendChild(a); a.click(); a.remove(); });
   $("pmOpen").addEventListener("click", () => { if (pmUrl) window.open(pmUrl, "_blank"); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closePreview(); });
+
+  // ---------------- Order Converter (client-side, no backend) ----------------
+  (function setupConverter() {
+    const CANON = ["tracking_code","asin","upc/gtin","brand","product_name","amz_link",
+      "category","bundle_size","unit_price","order_quantity","target_sell_price","profit",
+      "roi","breakeven_price","distributor","date_ordered","order_id","invoice_number",
+      "notes","client_name"];
+    const ALIASES = { client_name: ["client_name", "client"] };
+    let last = null;
+
+    function normUpc(v) {
+      let s = (v == null ? "" : String(v)).trim();
+      if (!s) return "";
+      if (/^\d+\.0+$/.test(s)) s = s.split(".")[0];   // '…002.0' -> '…002'
+      const d = s.replace(/\D/g, "");
+      if (!d) return "";
+      return d.length < 12 ? d.padStart(12, "0") : d; // pad to 12, keep longer GTINs
+    }
+    function parseCSV(text) {
+      if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+      const rows = []; let row = [], field = "", inQ = false;
+      for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (inQ) { if (ch === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else inQ = false; } else field += ch; }
+        else if (ch === '"') inQ = true;
+        else if (ch === ",") { row.push(field); field = ""; }
+        else if (ch === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
+        else if (ch !== "\r") field += ch;
+      }
+      if (field !== "" || row.length) { row.push(field); rows.push(row); }
+      return rows;
+    }
+    const csvField = (v) => { v = (v == null ? "" : String(v)); return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    function headerIndex(header) { const idx = {}; header.forEach((n, i) => { const k = (n || "").trim().toLowerCase(); if (k && !(k in idx)) idx[k] = i; }); return idx; }
+    const colIdx = (idx, col) => { for (const n of (ALIASES[col] || [col])) if (n in idx) return idx[n]; return -1; };
+
+    function convert(text, filename) {
+      const rows = parseCSV(text);
+      if (!rows.length) return { row_count: 0, rows: [], csv: "", distributor: "", notes: ["The file was empty."], filename };
+      const idx = headerIndex(rows[0]);
+      const notes = [];
+      if (!("order_id" in idx)) notes.push("No 'Order_id' column found — order_id will be blank.");
+      const out = [];
+      for (let r = 1; r < rows.length; r++) {
+        const raw = rows[r];
+        if (!raw.some((c) => (c || "").trim())) continue;   // skip blank lines
+        const rec = {};
+        for (const col of CANON) { const j = colIdx(idx, col); rec[col] = (j >= 0 && j < raw.length) ? (raw[j] || "").trim() : ""; }
+        rec["upc/gtin"] = normUpc(rec["upc/gtin"]);
+        out.push(rec);
+      }
+      const header = CANON.map(csvField).join(",");
+      const body = out.map((rec) => CANON.map((c) => csvField(rec[c])).join(",")).join("\r\n");
+      const csv = header + "\r\n" + body + (body ? "\r\n" : "");
+      return { row_count: out.length, rows: out, csv, distributor: (out[0] && out[0].distributor) || "", notes, filename };
+    }
+
+    function render(d) {
+      const host = $("cvOut");
+      if (!d.row_count) { host.innerHTML = '<div class="empty">' + esc((d.notes && d.notes.join(" ")) || "No order rows found.") + "</div>"; return; }
+      const cols = ["order_id", "brand", "product_name", "bundle_size", "unit_price", "order_quantity", "distributor", "client_name"];
+      const labels = ["Order_id", "Brand", "Product", "Bundle", "Unit price", "Order qty", "Distributor", "Client"];
+      const cellCss = "padding:7px 10px;border-bottom:1px solid var(--border);white-space:nowrap";
+      const th = labels.map((l) => '<th style="text-align:left;' + cellCss + ';color:var(--muted);font-weight:600">' + l + "</th>").join("");
+      const trs = d.rows.map((r) => "<tr>" + cols.map((c) => {
+        const v = c === "product_name" ? (r[c] || "").slice(0, 46) : r[c];
+        return '<td style="' + cellCss + '">' + esc(v || "") + "</td>";
+      }).join("") + "</tr>").join("");
+      const notes = (d.notes || []).map((n) => '<div class="muted-txt" style="margin:6px 0">⚠️ ' + esc(n) + "</div>").join("");
+      host.innerHTML =
+        '<div class="upcard">' +
+          '<div class="upcard-head"><div>' +
+            '<div class="upcard-title">✓ Ready for pre-upload — ' + d.row_count + ' row' + (d.row_count === 1 ? "" : "s") + '</div>' +
+            '<div class="upcard-sub">' + esc(d.filename || "") + ' → 20 columns · distributor ' + esc(d.distributor || "—") + '</div>' +
+          '</div><button class="btn" id="cvDl">⬇ Download inventory CSV</button></div>' +
+          notes +
+          '<div style="overflow:auto;border:1px solid var(--border);border-radius:10px;max-height:420px">' +
+            '<table style="border-collapse:collapse;width:100%;font-size:12.5px"><thead><tr>' + th + '</tr></thead><tbody>' + trs + '</tbody></table></div>' +
+        '</div>';
+      $("cvDl").addEventListener("click", () => {
+        const base = (d.filename || "order").replace(/\.[^.]+$/, "");
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(new Blob([d.csv], { type: "text/csv" }));
+        a.download = base + "_inventory-preupload.csv";
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(a.href);
+      });
+    }
+
+    function pick() {
+      const f = $("cvFile").files[0];
+      $("cvName").textContent = f ? f.name : "";
+      $("cvBtn").disabled = !f;
+      $("cvHint").textContent = f ? "Ready." : "Add the order file to enable.";
+    }
+    function run() {
+      const f = $("cvFile").files[0]; if (!f) return;
+      $("cvOut").innerHTML = '<div class="muted-txt" style="padding:10px">Converting ' + esc(f.name) + " …</div>";
+      const reader = new FileReader();
+      reader.onload = () => { try { last = convert(reader.result, f.name); render(last); } catch (err) { $("cvOut").innerHTML = '<div class="empty">Could not read the CSV: ' + esc(err.message || err) + "</div>"; } };
+      reader.onerror = () => { $("cvOut").innerHTML = '<div class="empty">Could not read the file.</div>'; };
+      reader.readAsText(f);
+    }
+    $("cvFile").addEventListener("change", pick);
+    $("cvBtn").addEventListener("click", run);
+    const drop = $("cvDrop");
+    drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("drag"); });
+    drop.addEventListener("dragleave", (e) => { if (!drop.contains(e.relatedTarget)) drop.classList.remove("drag"); });
+    drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("drag"); if (e.dataTransfer.files[0]) { $("cvFile").files = e.dataTransfer.files; pick(); } });
+  })();
 
   // ---------------- boot ----------------
   document.addEventListener("visibilitychange", () => { if (!document.hidden) pollTick(); });
