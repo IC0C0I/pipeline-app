@@ -154,6 +154,8 @@
   select.status { font: inherit; font-weight: 600; font-size: 12px; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--chip-bg); color: var(--text); cursor: pointer; appearance: none; }
   select.status.st-foruploading { color: var(--amber); background: var(--amber-bg); border-color: var(--amber-bd); }
   select.status.st-uploaded     { color: var(--green); background: var(--green-bg); border-color: var(--green-bd); }
+  select.status.st-awaitinginvoice { color: var(--amber); background: var(--amber-bg); border-color: var(--amber-bd); }
+  select.status.st-invoicereceived { color: var(--green); background: var(--green-bg); border-color: var(--green-bd); }
   /* legacy values keep a sensible color if any old rows still use them */
   select.status.st-ordered  { color: var(--blue);  background: var(--blue-bg);  border-color: var(--blue-bd); }
   select.status.st-invoiced { color: var(--amber); background: var(--amber-bg); border-color: var(--amber-bd); }
@@ -232,6 +234,7 @@
             <th>Order Sheet</th>
             <th class="sortable num" data-sort="order_amount">Order Amount<span class="caret" data-c="order_amount"></span></th>
             <th class="sortable" data-sort="status">Status<span class="caret" data-c="status"></span></th>
+            <th class="sortable" data-sort="invoice_status">Invoice Status<span class="caret" data-c="invoice_status"></span></th>
             <th class="sortable" data-sort="invoice_no">Invoice No<span class="caret" data-c="invoice_no"></span></th>
             <th class="sortable num" data-sort="invoice_amount">Invoice Amount<span class="caret" data-c="invoice_amount"></span></th>
             <th class="sortable" data-sort="date_invoiced">Date Invoiced<span class="caret" data-c="date_invoiced"></span></th>
@@ -271,6 +274,7 @@
   const MAX_FILE = 10 * 1024 * 1024; // 10 MB cap for attached PDFs
 
   const STATUS_OPTIONS = ["For Uploading", "Uploaded"];
+  const INVOICE_STATUS_OPTIONS = ["Awaiting Invoice", "Invoice Received"];
   const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
   const $ = (id) => document.getElementById(id);
 
@@ -721,6 +725,8 @@
     const tr = document.createElement("tr"); tr.dataset.id = r.id;
     const st = r.status || "";
     const statusOpts = ['<option value=""></option>'].concat(STATUS_OPTIONS.concat(STATUS_OPTIONS.includes(st) || !st ? [] : [st]).map((o) => '<option value="' + esc(o) + '"' + (o === st ? " selected" : "") + ">" + esc(o) + "</option>")).join("");
+    const ist = r.invoice_status || "";
+    const invStatusOpts = ['<option value=""></option>'].concat(INVOICE_STATUS_OPTIONS.concat(INVOICE_STATUS_OPTIONS.includes(ist) || !ist ? [] : [ist]).map((o) => '<option value="' + esc(o) + '"' + (o === ist ? " selected" : "") + ">" + esc(o) + "</option>")).join("");
     tr.innerHTML =
       '<td class="colcheck"><input type="checkbox" class="rowsel" data-id="' + r.id + '"' + (selected.has(r.id) ? " checked" : "") + "></td>" +
       '<td class="colref"><span class="ref" data-copy="' + r.id + '" title="Click to copy id">' + r.id.slice(0, 8).toUpperCase() + "</span></td>" +
@@ -729,6 +735,7 @@
       "<td>" + linkCell(r, "order_sheet", true) + "</td>" +
       '<td class="num">' + moneyCell(r.id, "order_amount", r.order_amount) + "</td>" +
       '<td><select class="status ' + slug(st) + '" data-id="' + r.id + '" data-field="status">' + statusOpts + "</select></td>" +
+      '<td><select class="status ' + slug(ist) + '" data-id="' + r.id + '" data-field="invoice_status">' + invStatusOpts + "</select></td>" +
       '<td><div class="invcell">' + ci(r.id, "invoice_no", "text", r.invoice_no) + fileCell(r, "invoice") + "</div></td>" +
       '<td class="num">' + moneyCell(r.id, "invoice_amount", r.invoice_amount) + "</td>" +
       "<td>" + ci(r.id, "date_invoiced", "date", r.date_invoiced, 'type="date"') + "</td>" +
@@ -788,7 +795,7 @@
     const t = e.target;
     if (t.classList.contains("fileup")) { handleUpload(t); return; }
     if (t.classList.contains("rowsel")) { t.checked ? selected.add(t.dataset.id) : selected.delete(t.dataset.id); syncSelUI(); return; }
-    if (t.dataset.field === "status") { t.className = "status " + slug(t.value); saveCell(t.dataset.id, "status", "text", t.value, null); return; }
+    if (t.classList.contains("status")) { t.className = "status " + slug(t.value); saveCell(t.dataset.id, t.dataset.field, "text", t.value, null); return; }
     if (t.classList.contains("cell-in")) saveCell(t.dataset.id, t.dataset.field, t.dataset.type, t.value, t);
   });
   tb.addEventListener("click", (e) => {
