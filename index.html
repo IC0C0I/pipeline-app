@@ -115,6 +115,7 @@
   #pdfModal .pm-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
   #pdfModal .pm-title { font-weight: 600; font-size: 13px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #pdfModal .pm-body { flex: 1; overflow: auto; background: #3a3f47; padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  #pdfModal .pm-frame { flex: 1; width: 100%; border: 0; background: #525659; border-radius: 6px; min-height: 0; }
   #pdfModal .pm-page { max-width: 100%; height: auto; box-shadow: 0 2px 12px #0009; background: #fff; }
   #pdfModal .pm-fallback { color: #cfd6e0; text-align: center; margin: auto; font-size: 13px; line-height: 1.8; }
   #pdfModal .pm-x { cursor: pointer; color: var(--muted); padding: 6px 10px; border-radius: 6px; font-size: 12.5px; }
@@ -677,6 +678,15 @@
       pmUrl = URL.createObjectURL(new Blob([bytes], { type: f.mime || "application/pdf" }));
       pmName = f.filename || "invoice.pdf";
       $("pmTitle").textContent = pmName;
+      // On http/https use the browser's native PDF viewer (selectable + highlightable text).
+      // On file:// that's blocked, so fall back to canvas rendering (view-only).
+      if (location.protocol !== "file:") {
+        body.innerHTML = "";
+        const frame = document.createElement("iframe");
+        frame.className = "pm-frame"; frame.title = "PDF preview"; frame.src = pmUrl;
+        body.appendChild(frame);
+        return;
+      }
       const lib = await ensurePdfjs();
       const pdf = await lib.getDocument({ data: bytes.slice(0) }).promise;
       body.innerHTML = "";
