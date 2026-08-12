@@ -275,6 +275,7 @@
   const esc = (s) => (s == null ? "" : String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])));
   const parseAmount = (v) => { if (v == null) return null; const c = String(v).replace(/[^0-9.\-]/g, ""); if (!c || c === "-" || c === ".") return null; const n = Number(c); return Number.isFinite(n) ? n : null; };
   const money = (n) => (n == null ? "" : usd.format(n));
+  const fmtAmt = (n) => (n == null ? "" : Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
   const slug = (s) => "st-" + String(s || "").toLowerCase().replace(/[^a-z]/g, "");
   function toast(msg, isErr) { const t = $("toast"); t.textContent = msg; t.className = "show" + (isErr ? " err" : ""); clearTimeout(t._t); t._t = setTimeout(() => (t.className = ""), 2200); }
 
@@ -569,7 +570,7 @@
   function ci(id, field, type, value, extra) {
     return '<input class="cell-in" data-id="' + id + '" data-field="' + field + '" data-type="' + type + '" value="' + esc(value == null ? "" : value) + '" ' + (extra || "") + " />";
   }
-  const moneyCell = (id, field, val) => '<span class="money-wrap"><span class="cur">$</span>' + ci(id, field, "amount", val == null ? "" : Number(val).toFixed(2)) + "</span>";
+  const moneyCell = (id, field, val) => '<span class="money-wrap"><span class="cur">$</span>' + ci(id, field, "amount", val == null ? "" : fmtAmt(val)) + "</span>";
   // Compact PDF attach control (used in the Invoice cell): paperclip to attach, 📄 to open, ✕ to remove.
   function fileCell(r, slot) {
     const f = (filesByEntry[r.id] || {})[slot];
@@ -726,7 +727,7 @@
       if (!res.ok) throw new Error("HTTP " + res.status + " " + (await res.text()));
       const rec = rowsData.find((x) => x.id === id); if (rec) rec[field] = value;
       if (inputEl) { inputEl.classList.add("saved"); setTimeout(() => inputEl.classList.remove("saved"), 900); }
-      if (type === "amount" && inputEl) inputEl.value = value == null ? "" : value.toFixed(2);
+      if (type === "amount" && inputEl) inputEl.value = value == null ? "" : fmtAmt(value);
       renderStats();
     } catch (e) { console.error(e); if (inputEl) inputEl.classList.add("err"); toast("Save failed: " + e.message, true); }
   }
