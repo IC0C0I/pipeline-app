@@ -7,7 +7,7 @@
 <style>
   :root {
     --bg: #0c111b; --panel: #0f1521; --panel-2: #131a28;
-    --row: #0f1521; --row-alt: #121a28;
+    --row: #0f1521; --row-alt: #121a28; --row-hover: #172233;
     --border: #1e2836; --border-strong: #2a3648;
     --text: #d7dee9; --muted: #7c8899; --muted-2: #5c6675;
     --accent: #3b82f6; --link: #4f9bff; --input-bg: #0b1019; --chip-bg: #121a28;
@@ -18,6 +18,20 @@
     --teal: #35c9c0;  --teal-bg: #0e2a2a;  --teal-bd: #1c4a48;
     --gray: #9aa6b6;  --gray-bg: #1a2333;  --gray-bd: #2b3648;
   }
+  :root[data-theme="light"] {
+    --bg: #f5f7fa; --panel: #ffffff; --panel-2: #eef1f6;
+    --row: #ffffff; --row-alt: #f6f8fb; --row-hover: #eef2f8;
+    --border: #e2e6ec; --border-strong: #ccd3dd;
+    --text: #1b2431; --muted: #5b6472; --muted-2: #8a94a2;
+    --accent: #2563eb; --link: #2563eb; --input-bg: #ffffff; --chip-bg: #f1f4f8;
+    --green: #1a7f42; --green-bg: #e7f6ec; --green-bd: #b7e0c4;
+    --red: #b42318;   --red-bg: #fdeceb;   --red-bd: #f3c3bf;
+    --amber: #9a6a12; --amber-bg: #fbf1dd; --amber-bd: #eed9a6;
+    --blue: #2563eb;  --blue-bg: #e6effd;  --blue-bd: #bcd4f7;
+    --teal: #0f766e;  --teal-bg: #dcf5f2;  --teal-bd: #a7e3dd;
+    --gray: #5b6472;  --gray-bg: #eef1f6;  --gray-bd: #ccd3dd;
+  }
+  :root[data-theme="light"] input[type=date].cell-in { color-scheme: light; }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; }
   body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; font-size: 13px; }
@@ -119,7 +133,7 @@
   tbody td { padding: 5px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; white-space: nowrap; }
   tbody tr:nth-child(odd) { background: var(--row); }
   tbody tr:nth-child(even) { background: var(--row-alt); }
-  tbody tr:hover { background: #16203180; }
+  tbody tr:hover { background: var(--row-hover); }
 
   .cell-in { width: 100%; min-width: 90px; padding: 6px 8px; font: inherit; background: transparent; border: 1px solid transparent; border-radius: 6px; color: var(--text); }
   .cell-in:hover { border-color: var(--border); }
@@ -267,6 +281,7 @@
   let fpField = null;     // column whose filter popover is open
   let filesByEntry = {};  // entry_id -> { order_sheet: {id, filename}, reorder_sheet: {...} }
   let viewMode = localStorage.getItem("pl_view") || "grid"; // "grid" | "kanban"
+  let currentTheme = localStorage.getItem("pl_theme") || "dark";
   let dragId = null;
   let pollTimer = null, lastSnapshot = "", filesFlat = [];
   let session = null;
@@ -278,6 +293,8 @@
   const fmtAmt = (n) => (n == null ? "" : Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
   const slug = (s) => "st-" + String(s || "").toLowerCase().replace(/[^a-z]/g, "");
   function toast(msg, isErr) { const t = $("toast"); t.textContent = msg; t.className = "show" + (isErr ? " err" : ""); clearTimeout(t._t); t._t = setTimeout(() => (t.className = ""), 2200); }
+  function applyTheme() { document.documentElement.dataset.theme = currentTheme; }
+  function toggleTheme() { currentTheme = currentTheme === "dark" ? "light" : "dark"; localStorage.setItem("pl_theme", currentTheme); applyTheme(); renderTabs(); }
 
   // ---------------- auth ----------------
   function setSession(d) {
@@ -451,13 +468,18 @@
         bar.appendChild(el);
       });
     }
+    const right = document.createElement("div"); right.className = "userbox";
+    const themeBtn = document.createElement("button");
+    themeBtn.className = "btn ghost"; themeBtn.title = "Toggle light / dark";
+    themeBtn.textContent = currentTheme === "light" ? "🌙" : "☀";
+    themeBtn.onclick = toggleTheme; right.appendChild(themeBtn);
     if (session && session.email) {
-      const u = document.createElement("div");
-      u.className = "userbox";
-      u.innerHTML = "<span>Signed in as <b>" + esc(session.email) + "</b></span>";
+      const info = document.createElement("span"); info.innerHTML = "Signed in as <b>" + esc(session.email) + "</b>";
+      right.appendChild(info);
       const btn = document.createElement("button"); btn.className = "btn ghost"; btn.textContent = "Sign out"; btn.onclick = signOut;
-      u.appendChild(btn); bar.appendChild(u);
+      right.appendChild(btn);
     }
+    bar.appendChild(right);
   }
 
   function renderStats() {
@@ -868,6 +890,7 @@
   // ---------------- boot ----------------
   document.addEventListener("visibilitychange", () => { if (!document.hidden) pollTick(); });
 
+  applyTheme();
   setAuthMode("signin");
   setupFilters();
   setupKanban();
