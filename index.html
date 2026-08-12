@@ -62,7 +62,8 @@
   .userbox b { color: var(--text); font-weight: 600; }
 
   .wrap { padding: 16px 16px 40px; }
-  .title { font-size: 20px; font-weight: 700; margin: 6px 2px 2px; }
+  .title { font-size: 20px; font-weight: 700; margin: 6px 2px 2px; display: flex; align-items: center; gap: 9px; }
+  .logo { width: 26px; height: 26px; flex: none; }
   .subtitle { color: var(--muted); margin: 0 2px 14px; font-size: 12.5px; }
 
   .chips { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
@@ -209,7 +210,7 @@
   <div class="tabbar" id="tabbar"></div>
 
   <div class="wrap">
-    <div class="title">Pipeline</div>
+    <div class="title"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#2563eb"/><path d="M16 6 26 11 16 16 6 11Z" fill="#fff"/><path d="M6 13 16 18 16 26 6 21Z" fill="#fff" opacity=".65"/><path d="M26 13 16 18 16 26 26 21Z" fill="#fff" opacity=".82"/></svg>Pipeline</div>
     <div class="subtitle" id="subtitle">0 items in this stage</div>
     <div class="chips" id="chips"></div>
 
@@ -266,6 +267,13 @@
   </div>
 
 <script>
+  (function setFavicon() {
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#2563eb"/><path d="M16 6 26 11 16 16 6 11Z" fill="#fff"/><path d="M6 13 16 18 16 26 6 21Z" fill="#fff" fill-opacity=".65"/><path d="M26 13 16 18 16 26 26 21Z" fill="#fff" fill-opacity=".82"/></svg>';
+    const link = document.querySelector("link[rel~=icon]") || document.createElement("link");
+    link.rel = "icon"; link.type = "image/svg+xml"; link.href = "data:image/svg+xml," + encodeURIComponent(svg);
+    document.head.appendChild(link);
+  })();
+
   const SUPABASE_URL = "https://xkblzicaiyzbljxbjvar.supabase.co";
   const SUPABASE_KEY = "sb_publishable_Pwot1cVUd-fms3iKA3mX6A_piw49HiG";
   const REST = SUPABASE_URL + "/rest/v1/pipeline_entries";
