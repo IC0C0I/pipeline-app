@@ -109,6 +109,8 @@
   span.status { display: inline-block; font-weight: 600; font-size: 11.5px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--chip-bg); color: var(--text); }
   span.status.st-awaitinginvoice { color: var(--amber); background: var(--amber-bg); border-color: var(--amber-bd); }
   span.status.st-invoicereceived { color: var(--green); background: var(--green-bg); border-color: var(--green-bd); }
+  span.status.st-yes { color: var(--green); background: var(--green-bg); border-color: var(--green-bd); }
+  span.status.st-no  { color: var(--amber); background: var(--amber-bg); border-color: var(--amber-bd); }
   .wrap { padding: 16px 16px 40px; }
   .title { font-size: 20px; font-weight: 700; margin: 6px 2px 2px; display: flex; align-items: center; gap: 9px; }
   .logo { width: 26px; height: 26px; flex: none; }
@@ -210,6 +212,8 @@
   select.status.st-uploaded     { color: var(--green); background: var(--green-bg); border-color: var(--green-bd); }
   select.status.st-awaitinginvoice { color: var(--amber); background: var(--amber-bg); border-color: var(--amber-bd); }
   select.status.st-invoicereceived { color: var(--green); background: var(--green-bg); border-color: var(--green-bd); }
+  select.status.st-yes { color: var(--green); background: var(--green-bg); border-color: var(--green-bd); }
+  select.status.st-no  { color: var(--amber); background: var(--amber-bg); border-color: var(--amber-bd); }
   /* legacy values keep a sensible color if any old rows still use them */
   select.status.st-ordered  { color: var(--blue);  background: var(--blue-bg);  border-color: var(--blue-bd); }
   select.status.st-invoiced { color: var(--amber); background: var(--amber-bg); border-color: var(--amber-bd); }
@@ -302,6 +306,7 @@
             <th>Order Sheet</th>
             <th class="sortable num" data-sort="order_amount">Order Amount<span class="caret" data-c="order_amount"></span></th>
             <th class="sortable" data-sort="status">OTDB Status<span class="caret" data-c="status"></span></th>
+            <th class="sortable" data-sort="order_placed">Order Place?<span class="caret" data-c="order_placed"></span></th>
             <th class="sortable" data-sort="invoice_status">Invoice Status<span class="caret" data-c="invoice_status"></span></th>
             <th class="sortable" data-sort="invoice_no">Invoice No<span class="caret" data-c="invoice_no"></span></th>
             <th class="sortable num" data-sort="invoice_amount">Invoice Amount<span class="caret" data-c="invoice_amount"></span></th>
@@ -390,6 +395,7 @@
 
   const STATUS_OPTIONS = ["For Uploading", "Uploaded"];
   const INVOICE_STATUS_OPTIONS = ["Awaiting Invoice", "Invoice Received"];
+  const ORDER_PLACED_OPTIONS = ["Yes", "No"];
   const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
   const $ = (id) => document.getElementById(id);
 
@@ -925,6 +931,8 @@
     const statusOpts = ['<option value=""></option>'].concat(STATUS_OPTIONS.concat(STATUS_OPTIONS.includes(st) || !st ? [] : [st]).map((o) => '<option value="' + esc(o) + '"' + (o === st ? " selected" : "") + ">" + esc(o) + "</option>")).join("");
     const ist = r.invoice_status || "";
     const invStatusOpts = ['<option value=""></option>'].concat(INVOICE_STATUS_OPTIONS.concat(INVOICE_STATUS_OPTIONS.includes(ist) || !ist ? [] : [ist]).map((o) => '<option value="' + esc(o) + '"' + (o === ist ? " selected" : "") + ">" + esc(o) + "</option>")).join("");
+    const op = r.order_placed || "";
+    const orderPlacedOpts = ['<option value=""></option>'].concat(ORDER_PLACED_OPTIONS.concat(ORDER_PLACED_OPTIONS.includes(op) || !op ? [] : [op]).map((o) => '<option value="' + esc(o) + '"' + (o === op ? " selected" : "") + ">" + esc(o) + "</option>")).join("");
     tr.innerHTML =
       '<td class="colcheck"><input type="checkbox" class="rowsel" data-id="' + r.id + '"' + (selected.has(r.id) ? " checked" : "") + "></td>" +
       '<td class="colref"><span class="ref" data-copy="' + r.id + '" title="Click to copy id">' + r.id.slice(0, 8).toUpperCase() + "</span></td>" +
@@ -933,6 +941,7 @@
       "<td>" + linkCell(r, "order_sheet", true) + "</td>" +
       '<td class="num">' + moneyCell(r.id, "order_amount", r.order_amount) + "</td>" +
       '<td><select class="status ' + slug(st) + '" data-id="' + r.id + '" data-field="status">' + statusOpts + "</select></td>" +
+      '<td><select class="status ' + slug(op) + '" data-id="' + r.id + '" data-field="order_placed">' + orderPlacedOpts + "</select></td>" +
       '<td><select class="status ' + slug(ist) + '" data-id="' + r.id + '" data-field="invoice_status">' + invStatusOpts + "</select></td>" +
       '<td><div class="invcell">' + ci(r.id, "invoice_no", "text", r.invoice_no) + fileCell(r, "invoice") + "</div></td>" +
       '<td class="num">' + moneyCell(r.id, "invoice_amount", r.invoice_amount) + "</td>" +
